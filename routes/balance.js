@@ -314,7 +314,7 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
       .run(req);
 
     await body('paymentMethod')
-      .isIn(['bank_transfer', 'paypal', 'crypto'])
+      .isIn(['bank_transfer', 'paypal'])
       .withMessage('Méthode de paiement invalide')
       .run(req);
 
@@ -537,8 +537,21 @@ router.patch('/withdrawal-requests/:id', authorizeRoles('admin'), async (req, re
       [status, req.user.id, adminNotes, rejectionReason, id]
     );
 
-    // Si approuvée ou traitée, déduire le montant de la balance
-    if (status === 'approved' || status === 'processed') {
+    // Si approuvée, déduire le montant de la balance et créer la transaction
+    if (status === 'approved') {
+      // Vérifier que le propriétaire a suffisamment de fonds
+      const currentBalance = await executeQuery(
+        'SELECT current_balance FROM owner_balances WHERE owner_id = ?',
+        [withdrawalRequest.owner_id]
+      );
+
+      if (currentBalance.length === 0 || parseFloat(currentBalance[0].current_balance) < parseFloat(withdrawalRequest.amount)) {
+        return res.status(400).json({
+          error: 'Solde insuffisant',
+          message: 'Le propriétaire n\'a pas suffisamment de fonds pour cette demande'
+        });
+      }
+
       // Créer une transaction de retrait
       await executeQuery(
         `INSERT INTO balance_transactions
@@ -558,6 +571,8 @@ router.patch('/withdrawal-requests/:id', authorizeRoles('admin'), async (req, re
          WHERE owner_id = ?`,
         [withdrawalRequest.amount, withdrawalRequest.owner_id]
       );
+
+      console.log(`💰 Balance déduite: ${withdrawalRequest.amount}€ pour le propriétaire ${withdrawalRequest.owner_id}`);
     }
 
     res.json({

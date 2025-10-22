@@ -4,6 +4,7 @@ const { executeQuery } = require('../config/database');
 const { createError } = require('../middleware/errorHandler');
 const StripeService = require('../services/stripeService');
 const stripe = require('../config/stripe');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -110,20 +111,56 @@ router.post('/confirm-payment', [
     // Confirmer le paiement avec Stripe
     const paymentId = await StripeService.confirmPayment(paymentIntentId);
 
-    // Récupérer le paiement créé
+    // Récupérer le paiement créé avec les infos utilisateur
     const payment = await executeQuery(
-      `SELECT p.*, r.start_time, r.end_time, ps.space_number, park.name as parking_name
+      `SELECT p.*, r.start_time, r.end_time, ps.space_number, park.name as parking_name,
+              u.first_name, u.last_name, u.email
        FROM payments p
        JOIN reservations r ON p.reservation_id = r.id
        JOIN parking_spaces ps ON r.space_id = ps.id
        JOIN parkings park ON ps.parking_id = park.id
+       JOIN users u ON r.user_id = u.id
        WHERE p.id = ?`,
       [paymentId]
     );
 
+    const paymentData = payment[0];
+
+    // Envoyer l'email de confirmation de paiement
+    try {
+      await emailService.sendPaymentConfirmation(paymentData.email, {
+        userName: `${paymentData.first_name} ${paymentData.last_name}`,
+        amount: paymentData.amount,
+        paymentMethod: paymentData.payment_method,
+        transactionId: paymentData.stripe_payment_intent_id || paymentData.id,
+        reservationDetails: {
+          parkingName: paymentData.parking_name,
+          startTime: paymentData.start_time,
+          endTime: paymentData.end_time
+        }
+      });
+      console.log('✅ Email de confirmation de paiement envoyé');
+
+      // Envoyer aussi le reçu
+      await emailService.sendPaymentReceipt(paymentData.email, {
+        userName: `${paymentData.first_name} ${paymentData.last_name}`,
+        amount: paymentData.amount,
+        transactionId: paymentData.stripe_payment_intent_id || paymentData.id,
+        items: [
+          {
+            description: `Stationnement - ${paymentData.parking_name}`,
+            amount: paymentData.amount
+          }
+        ]
+      });
+      console.log('✅ Reçu de paiement envoyé');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi emails de paiement:', emailError.message);
+    }
+
     res.json({
       message: 'Paiement confirmé avec succès',
-      payment: payment[0]
+      payment: paymentData
     });
 
   } catch (error) {

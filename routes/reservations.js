@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const { executeQuery } = require('../config/database');
 const { createError } = require('../middleware/errorHandler');
 const moment = require('moment');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -117,19 +118,39 @@ router.post('/', reservationValidation, async (req, res, next) => {
 
     const reservationId = result.insertId;
 
-    // Récupérer la réservation créée
+    // Récupérer la réservation créée avec les infos utilisateur
     const reservation = await executeQuery(
-      `SELECT r.*, ps.space_number, p.name as parking_name, p.address
+      `SELECT r.*, ps.space_number, p.name as parking_name, p.address,
+              u.first_name, u.last_name, u.email
        FROM reservations r
        JOIN parking_spaces ps ON r.space_id = ps.id
        JOIN parkings p ON ps.parking_id = p.id
+       JOIN users u ON r.user_id = u.id
        WHERE r.id = ?`,
       [reservationId]
     );
 
+    const reservationData = reservation[0];
+
+    // Envoyer l'email de confirmation de réservation
+    try {
+      await emailService.sendReservationConfirmation(reservationData.email, {
+        userName: `${reservationData.first_name} ${reservationData.last_name}`,
+        parkingName: reservationData.parking_name,
+        startTime: reservationData.start_time,
+        endTime: reservationData.end_time,
+        totalAmount: reservationData.total_amount,
+        reservationId: reservationData.id
+      });
+      console.log('✅ Email de confirmation de réservation envoyé');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email de confirmation:', emailError.message);
+      // Ne pas faire échouer la réservation si l'email échoue
+    }
+
     res.status(201).json({
       message: 'Réservation créée avec succès',
-      reservation: reservation[0]
+      reservation: reservationData
     });
 
   } catch (error) {
@@ -266,11 +287,43 @@ router.patch('/:id/cancel', async (req, res, next) => {
       });
     }
 
+    // Récupérer les détails de la réservation avec les infos utilisateur et parking
+    const reservationDetails = await executeQuery(
+      `SELECT r.*, ps.space_number, p.name as parking_name, p.address,
+              u.first_name, u.last_name, u.email
+       FROM reservations r
+       JOIN parking_spaces ps ON r.space_id = ps.id
+       JOIN parkings p ON ps.parking_id = p.id
+       JOIN users u ON r.user_id = u.id
+       WHERE r.id = ?`,
+      [reservationId]
+    );
+
+    const reservationData = reservationDetails[0];
+
     // Annuler la réservation
     await executeQuery(
       'UPDATE reservations SET status = "cancelled", cancelled_at = NOW() WHERE id = ?',
       [reservationId]
     );
+
+    // Envoyer l'email d'annulation
+    try {
+      // Calculer le remboursement éventuel (par exemple 80% si annulation plus de 2h à l'avance)
+      const hoursUntilStart = startTime.diff(now, 'hours');
+      const refundAmount = hoursUntilStart >= 2 ? reservationData.total_amount * 0.8 : 0;
+
+      await emailService.sendReservationCancellation(reservationData.email, {
+        userName: `${reservationData.first_name} ${reservationData.last_name}`,
+        parkingName: reservationData.parking_name,
+        startTime: reservationData.start_time,
+        reservationId: reservationData.id,
+        refundAmount: refundAmount > 0 ? refundAmount : null
+      });
+      console.log('✅ Email d\'annulation de réservation envoyé');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email d\'annulation:', emailError.message);
+    }
 
     res.json({
       message: 'Réservation annulée avec succès'

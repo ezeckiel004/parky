@@ -1,6 +1,7 @@
 const express = require('express');
 const { authorizeRoles } = require('../middleware/auth');
 const BalanceService = require('../services/balanceService');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -359,6 +360,12 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
       });
     }
 
+    // Récupérer les infos du propriétaire
+    const ownerInfo = await executeQuery(
+      'SELECT first_name, last_name, email FROM users WHERE id = ?',
+      [ownerId]
+    );
+
     // Créer la demande de retrait
     const result = await executeQuery(
       `INSERT INTO withdrawal_requests 
@@ -367,10 +374,27 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
       [ownerId, amount, paymentMethod, JSON.stringify(bankDetails || {})]
     );
 
+    const withdrawalRequestId = result.insertId;
+    const ownerData = ownerInfo[0];
+
+    // Envoyer l'email de notification à l'admin
+    try {
+      await emailService.sendWithdrawalRequestNotification(null, {
+        ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
+        ownerEmail: ownerData.email,
+        amount,
+        paymentMethod,
+        requestId: withdrawalRequestId
+      });
+      console.log('✅ Email de notification admin envoyé pour demande de retrait');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email notification admin:', emailError.message);
+    }
+
     res.status(201).json({
       message: 'Demande de retrait créée avec succès',
       withdrawalRequest: {
-        id: result.insertId,
+        id: withdrawalRequestId,
         amount,
         paymentMethod,
         status: 'pending',
@@ -611,6 +635,29 @@ router.patch('/withdrawal-requests/:id', authorizeRoles('admin'), async (req, re
       );
 
       console.log(`💰 Balance déduite: ${withdrawalRequest.amount}€ pour le propriétaire ${withdrawalRequest.owner_id}`);
+    }
+
+    // Récupérer les infos du propriétaire pour l'email
+    const ownerInfo = await executeQuery(
+      'SELECT first_name, last_name, email FROM users WHERE id = ?',
+      [withdrawalRequest.owner_id]
+    );
+
+    const ownerData = ownerInfo[0];
+
+    // Envoyer l'email de confirmation au propriétaire
+    try {
+      await emailService.sendWithdrawalConfirmation(ownerData.email, {
+        ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
+        amount: withdrawalRequest.amount,
+        paymentMethod: withdrawalRequest.payment_method,
+        status,
+        requestId: id,
+        processedDate: new Date()
+      });
+      console.log('✅ Email de confirmation de retrait envoyé au propriétaire');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email confirmation retrait:', emailError.message);
     }
 
     res.json({

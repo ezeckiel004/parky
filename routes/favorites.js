@@ -17,7 +17,7 @@ router.post('/', async (req, res, next) => {
     );
 
     if (parking.length === 0) {
-      return next(createError(404, 'Parking non trouvé ou non disponible.'));
+      return next(createError('Parking non trouvé ou non disponible.', 404));
     }
 
     // Vérifier si déjà en favoris
@@ -27,7 +27,7 @@ router.post('/', async (req, res, next) => {
     );
 
     if (existingFavorite.length > 0) {
-      return next(createError(409, 'Ce parking est déjà dans vos favoris.'));
+      return next(createError('Ce parking est déjà dans vos favoris.', 409));
     }
 
     // Ajouter aux favoris
@@ -135,7 +135,7 @@ router.delete('/:parkingId', async (req, res, next) => {
     );
 
     if (result.affectedRows === 0) {
-      return next(createError(404, 'Favori non trouvé.'));
+      return next(createError('Favori non trouvé.', 404));
     }
 
     res.json({

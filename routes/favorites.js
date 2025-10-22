@@ -12,7 +12,7 @@ router.post('/', async (req, res, next) => {
 
     // Vérifier si le parking existe
     const parking = await executeQuery(
-      'SELECT id FROM parkings WHERE id = ? AND status = "available"',
+      'SELECT id FROM parkings WHERE id = ? AND status = "active"',
       [parkingId]
     );
 

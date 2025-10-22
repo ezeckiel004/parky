@@ -388,7 +388,11 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
   try {
     const { executeQuery } = require('../config/database');
     const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Conversion sécurisée en entiers
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const offset = (pageNum - 1) * limitNum;
 
     const requests = await executeQuery(
       `SELECT wr.*, u.first_name, u.last_name,
@@ -400,7 +404,7 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
        WHERE wr.owner_id = ?
        ORDER BY wr.requested_at DESC
        LIMIT ? OFFSET ?`,
-      [req.user.id, parseInt(limit), parseInt(offset)]
+      [req.user.id, limitNum, offset]
     );
 
     // Compter le total
@@ -430,7 +434,11 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
   try {
     const { executeQuery } = require('../config/database');
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Conversion sécurisée en entiers
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const offset = (pageNum - 1) * limitNum;
 
     let query = `
       SELECT wr.*, u.first_name, u.last_name, u.email,
@@ -449,7 +457,7 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
     }
 
     query += ' ORDER BY wr.requested_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(limitNum, offset);
 
     const requests = await executeQuery(query, params);
 

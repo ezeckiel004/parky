@@ -150,7 +150,10 @@ class BalanceService {
   // Récupérer l'historique des transactions d'un propriétaire
   static async getOwnerTransactions(ownerId, page = 1, limit = 10) {
     try {
-      const offset = (parseInt(page) - 1) * parseInt(limit);
+      // Conversion sécurisée en entiers
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 10;
+      const offset = (pageNum - 1) * limitNum;
 
       const transactions = await executeQuery(`
         SELECT
@@ -167,7 +170,7 @@ class BalanceService {
         WHERE bt.owner_id = ?
         ORDER BY bt.created_at DESC
         LIMIT ? OFFSET ?
-      `, [ownerId, parseInt(limit), offset]);
+      `, [ownerId, limitNum, offset]);
 
       const totalResult = await executeQuery(
         'SELECT COUNT(*) as total FROM balance_transactions WHERE owner_id = ?',

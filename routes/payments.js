@@ -265,7 +265,11 @@ async function processPayment(method, amount, cardDetails) {
 router.get('/my-payments', async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    
+    // Validation et sécurisation des paramètres
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
+    const safePage = Math.max(parseInt(page) || 1, 1);
+    const safeOffset = (safePage - 1) * safeLimit;
 
     let query = `
       SELECT p.*, r.start_time, r.end_time, ps.space_number, park.name as parking_name
@@ -282,8 +286,8 @@ router.get('/my-payments', async (req, res, next) => {
       queryParams.push(status);
     }
 
-    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-    queryParams.push(parseInt(limit), offset);
+    // **LIMIT/OFFSET intégrés directement dans la chaîne SQL**
+    query += ` ORDER BY p.created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
 
     const payments = await executeQuery(query, queryParams);
 
@@ -302,10 +306,10 @@ router.get('/my-payments', async (req, res, next) => {
     res.json({
       payments,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / safeLimit)
       }
     });
 
@@ -350,7 +354,11 @@ router.get('/parking/:parkingId', async (req, res, next) => {
   try {
     const parkingId = req.params.parkingId;
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    
+    // Validation et sécurisation des paramètres
+    const safeLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 100);
+    const safePage = Math.max(parseInt(page) || 1, 1);
+    const safeOffset = (safePage - 1) * safeLimit;
 
     // Vérifier que l'utilisateur est propriétaire du parking
     const parking = await executeQuery(
@@ -387,8 +395,8 @@ router.get('/parking/:parkingId', async (req, res, next) => {
       queryParams.push(status);
     }
 
-    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-    queryParams.push(parseInt(limit), offset);
+    // **LIMIT/OFFSET intégrés directement dans la chaîne SQL**
+    query += ` ORDER BY p.created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
 
     const payments = await executeQuery(query, queryParams);
 
@@ -413,10 +421,10 @@ router.get('/parking/:parkingId', async (req, res, next) => {
     res.json({
       payments,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / safeLimit)
       }
     });
 

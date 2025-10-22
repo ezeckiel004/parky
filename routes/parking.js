@@ -54,7 +54,7 @@ router.get('/', async (req, res, next) => {
       available
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // Construire la requête de base
     let query = `
@@ -437,7 +437,7 @@ router.delete('/:id', authorizeRoles('proprietaire', 'admin'), async (req, res, 
 router.get('/owner/my-parkings', authenticateToken, authorizeRoles('proprietaire', 'admin'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let query = `
       SELECT p.*, 

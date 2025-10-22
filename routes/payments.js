@@ -265,7 +265,7 @@ async function processPayment(method, amount, cardDetails) {
 router.get('/my-payments', async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let query = `
       SELECT p.*, r.start_time, r.end_time, ps.space_number, park.name as parking_name
@@ -350,7 +350,7 @@ router.get('/parking/:parkingId', async (req, res, next) => {
   try {
     const parkingId = req.params.parkingId;
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // Vérifier que l'utilisateur est propriétaire du parking
     const parking = await executeQuery(

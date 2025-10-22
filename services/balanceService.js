@@ -150,7 +150,7 @@ class BalanceService {
   // Récupérer l'historique des transactions d'un propriétaire
   static async getOwnerTransactions(ownerId, page = 1, limit = 10) {
     try {
-      const offset = (page - 1) * limit;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
 
       const transactions = await executeQuery(`
         SELECT

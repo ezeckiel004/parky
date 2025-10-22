@@ -388,7 +388,7 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
   try {
     const { executeQuery } = require('../config/database');
     const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const requests = await executeQuery(
       `SELECT wr.*, u.first_name, u.last_name,
@@ -430,7 +430,7 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
   try {
     const { executeQuery } = require('../config/database');
     const { page = 1, limit = 10, status } = req.query;
-    const offset = (page - 1) * limit;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let query = `
       SELECT wr.*, u.first_name, u.last_name, u.email,

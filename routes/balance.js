@@ -416,8 +416,8 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
        LEFT JOIN users admin ON wr.processed_by = admin.id
        WHERE wr.owner_id = ?
        ORDER BY wr.requested_at DESC
-       LIMIT ? OFFSET ?`,
-      [req.user.id, limitNum, offsetNum]
+       LIMIT ${limitNum} OFFSET ${offsetNum}`,
+      [req.user.id]
     );
 
     // Compter le total
@@ -430,10 +430,10 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
       message: 'Demandes de retrait récupérées avec succès',
       withdrawalRequests: requests,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total: totalResult[0].total,
-        pages: Math.ceil(totalResult[0].total / limit)
+        pages: Math.ceil(totalResult[0].total / limitNum)
       }
     });
 
@@ -483,8 +483,8 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
       params.push(statusParam.trim());
     }
 
-    query += ' ORDER BY wr.requested_at DESC LIMIT ? OFFSET ?';
-    params.push(limitNum, offsetNum);
+    // Utiliser template strings comme dans parking.js pour LIMIT et OFFSET
+    query += ` ORDER BY wr.requested_at DESC LIMIT ${limitNum} OFFSET ${offsetNum}`;
 
     console.log(`[DEBUG] Query: ${query}`);
     console.log(`[DEBUG] Params:`, params, `Types:`, params.map(p => typeof p));
@@ -494,9 +494,9 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
     // Compter le total
     let countQuery = 'SELECT COUNT(*) as total FROM withdrawal_requests WHERE 1=1';
     const countParams = [];
-    if (status) {
+    if (statusParam && typeof statusParam === 'string' && statusParam.trim().length > 0) {
       countQuery += ' AND status = ?';
-      countParams.push(status);
+      countParams.push(statusParam.trim());
     }
 
     const totalResult = await executeQuery(countQuery, countParams);
@@ -505,10 +505,10 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
       message: 'Demandes de retrait récupérées avec succès',
       withdrawalRequests: requests,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total: totalResult[0].total,
-        pages: Math.ceil(totalResult[0].total / limit)
+        pages: Math.ceil(totalResult[0].total / limitNum)
       }
     });
 

@@ -89,10 +89,11 @@ class GoogleAuthService {
         return { ...user, google_id: googleId, profile_picture: picture };
       }
 
-      // Créer un nouvel utilisateur
+      // Créer un nouvel utilisateur - Version compatible avec l'ancienne structure
       const result = await executeQuery(
         `INSERT INTO users (
           email, 
+          password,
           first_name, 
           last_name, 
           google_id, 
@@ -102,7 +103,7 @@ class GoogleAuthService {
           email_verified, 
           created_at,
           last_login
-        ) VALUES (?, ?, ?, ?, ?, 'client', 'active', 1, NOW(), NOW())`,
+        ) VALUES (?, 'GOOGLE_AUTH', ?, ?, ?, ?, 'client', 'active', 1, NOW(), NOW())`,
         [email, firstName, lastName || '', googleId, picture]
       );
 

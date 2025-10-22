@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { executeQuery } = require('../config/database');
 const { generateToken } = require('../middleware/auth');
 const { createError } = require('../middleware/errorHandler');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -232,20 +233,30 @@ router.post('/forgot-password', [
       });
     }
 
-    // Générer un token de réinitialisation (expire dans 1 heure)
-    const resetToken = require('crypto').randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+    // Générer un code de réinitialisation à 6 chiffres
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
-    // Sauvegarder le token en base
+    // Sauvegarder le code en base
     await executeQuery(
       'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?',
-      [resetToken, resetTokenExpiry, user[0].id]
+      [resetCode, resetTokenExpiry, user[0].id]
     );
 
-    // TODO: Envoyer l'email de réinitialisation
-    // Pour l'instant, on retourne juste un message de succès
+    // Envoyer l'email avec le code de réinitialisation
+    try {
+      await emailService.sendPasswordResetCode(user[0].email, {
+        userName: user[0].first_name,
+        resetCode: resetCode
+      });
+      console.log('✅ Email de réinitialisation envoyé');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email de réinitialisation:', emailError.message);
+      // Continuer même si l'email échoue
+    }
+
     res.json({
-      message: 'Si un compte avec cette adresse email existe, un email de réinitialisation a été envoyé'
+      message: 'Si un compte avec cette adresse email existe, un code de réinitialisation a été envoyé'
     });
 
   } catch (error) {
@@ -255,7 +266,7 @@ router.post('/forgot-password', [
 
 // Route de réinitialisation de mot de passe avec token
 router.post('/reset-password', [
-  body('token').notEmpty().withMessage('Token requis'),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Code à 6 chiffres requis'),
   body('password').isLength({ min: 6 }).withMessage('Le mot de passe doit contenir au moins 6 caractères')
 ], async (req, res, next) => {
   try {
@@ -268,18 +279,18 @@ router.post('/reset-password', [
       });
     }
 
-    const { token, password } = req.body;
+    const { code, password } = req.body;
 
-    // Vérifier le token
+    // Vérifier le code de réinitialisation
     const user = await executeQuery(
-      'SELECT id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW() AND status = "active"',
-      [token]
+      'SELECT id, email, first_name FROM users WHERE reset_token = ? AND reset_token_expiry > NOW() AND status = "active"',
+      [code]
     );
 
     if (user.length === 0) {
       return res.status(400).json({
-        error: 'Token invalide',
-        message: 'Le token de réinitialisation est invalide ou a expiré'
+        error: 'Code invalide',
+        message: 'Le code de réinitialisation est invalide ou a expiré'
       });
     }
 
@@ -287,11 +298,13 @@ router.post('/reset-password', [
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Mettre à jour le mot de passe et supprimer le token
+    // Mettre à jour le mot de passe et supprimer le code
     await executeQuery(
       'UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?',
       [hashedPassword, user[0].id]
     );
+
+    console.log(`✅ Mot de passe réinitialisé pour l'utilisateur ${user[0].email}`);
 
     res.json({
       message: 'Mot de passe réinitialisé avec succès'

@@ -268,6 +268,36 @@ class EmailService {
     );
   }
 
+  // Email de code de réinitialisation de mot de passe
+  async sendPasswordResetCode(userEmail, resetData) {
+    const { userName, resetCode } = resetData;
+    
+    const content = `
+      <h2>🔐 Code de Réinitialisation</h2>
+      <p>Bonjour <strong>${userName}</strong>,</p>
+      <p>Vous avez demandé la réinitialisation de votre mot de passe Parky.</p>
+      
+      <div class="highlight" style="text-align: center; background: #f8f9fa; padding: 30px; border-radius: 10px; margin: 20px 0;">
+        <h3>Votre code de vérification :</h3>
+        <div style="font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+          ${resetCode}
+        </div>
+        <p style="margin-top: 15px; color: #666; font-size: 14px;">
+          ⏰ Ce code expire dans 30 minutes
+        </p>
+      </div>
+      
+      <p>Saisissez ce code dans l'application pour créer votre nouveau mot de passe.</p>
+      <p><strong>⚠️ Important :</strong> Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+    `;
+
+    return this.sendEmail(
+      userEmail,
+      'Code de réinitialisation - Parky',
+      this.generateEmailTemplate('Réinitialisation de Mot de Passe', content)
+    );
+  }
+
   // Méthode générique d'envoi d'email
   async sendEmail(to, subject, html, text = null) {
     if (this.disabled) {

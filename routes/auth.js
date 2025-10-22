@@ -5,6 +5,7 @@ const { executeQuery } = require('../config/database');
 const { generateToken } = require('../middleware/auth');
 const { createError } = require('../middleware/errorHandler');
 const emailService = require('../services/emailService');
+const googleAuthService = require('../services/googleAuthService');
 
 const router = express.Router();
 
@@ -311,6 +312,54 @@ router.post('/reset-password', [
     });
 
   } catch (error) {
+    next(error);
+  }
+});
+
+// Route d'authentification Google
+router.post('/google', [
+  body('idToken').notEmpty().withMessage('Token Google requis')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        message: 'Token Google requis',
+        details: errors.array()
+      });
+    }
+
+    const { idToken } = req.body;
+
+    // Vérifier le token Google
+    const googleData = await googleAuthService.verifyGoogleToken(idToken);
+    
+    // Créer ou récupérer l'utilisateur
+    const user = await googleAuthService.findOrCreateGoogleUser(googleData, executeQuery);
+    
+    // Générer la réponse avec token JWT
+    const authResponse = googleAuthService.generateAuthResponse(user, generateToken);
+    
+    res.json(authResponse);
+
+  } catch (error) {
+    console.error('❌ Erreur authentification Google:', error.message);
+    
+    if (error.message === 'Token Google invalide') {
+      return res.status(401).json({
+        error: 'Token invalide',
+        message: 'Le token Google fourni est invalide ou expiré'
+      });
+    }
+    
+    if (error.message === 'Service Google Auth non configuré') {
+      return res.status(503).json({
+        error: 'Service indisponible',
+        message: 'L\'authentification Google n\'est pas configurée sur ce serveur'
+      });
+    }
+    
     next(error);
   }
 });

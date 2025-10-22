@@ -66,12 +66,16 @@ router.get('/', async (req, res, next) => {
         p.total_spaces,
         p.hourly_rate,
         p.description,
+        p.status as is_active,
         u.first_name as owner_first_name,
-        u.last_name as owner_last_name
+        u.last_name as owner_last_name,
+        COUNT(DISTINCT CASE WHEN ps.status = 'available' THEN ps.id END) as available_spaces
       FROM favorites f
       JOIN parkings p ON f.parking_id = p.id
       JOIN users u ON p.owner_id = u.id
+      LEFT JOIN parking_spaces ps ON p.id = ps.parking_id
       WHERE f.user_id = ?
+      GROUP BY f.id, p.id, u.id
       ORDER BY f.created_at DESC
       LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
     `, [userId]);
@@ -94,8 +98,8 @@ router.get('/', async (req, res, next) => {
         latitude: fav.latitude,
         longitude: fav.longitude,
         totalSpaces: fav.total_spaces,
-        availableSpaces: fav.available_spaces,
-        hourlyRate: fav.price_per_hour,
+        availableSpaces: fav.available_spaces || fav.total_spaces, // Utiliser total_spaces comme fallback
+        hourlyRate: fav.hourly_rate,
         description: fav.description,
         isActive: fav.is_active,
         owner: {

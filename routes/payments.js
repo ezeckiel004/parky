@@ -265,11 +265,7 @@ async function processPayment(method, amount, cardDetails) {
 router.get('/my-payments', async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * limit;
 
     let query = `
       SELECT p.*, r.start_time, r.end_time, ps.space_number, park.name as parking_name
@@ -287,7 +283,7 @@ router.get('/my-payments', async (req, res, next) => {
     }
 
     query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-    queryParams.push(limitNum, offset);
+    queryParams.push(parseInt(limit), offset);
 
     const payments = await executeQuery(query, queryParams);
 
@@ -354,11 +350,7 @@ router.get('/parking/:parkingId', async (req, res, next) => {
   try {
     const parkingId = req.params.parkingId;
     const { page = 1, limit = 10, status } = req.query;
-    
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * limit;
 
     // Vérifier que l'utilisateur est propriétaire du parking
     const parking = await executeQuery(
@@ -396,7 +388,7 @@ router.get('/parking/:parkingId', async (req, res, next) => {
     }
 
     query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-    queryParams.push(limitNum, offset);
+    queryParams.push(parseInt(limit), offset);
 
     const payments = await executeQuery(query, queryParams);
 

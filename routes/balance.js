@@ -387,12 +387,25 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
 router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req, res, next) => {
   try {
     const { executeQuery } = require('../config/database');
-    const { page = 1, limit = 10 } = req.query;
     
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    // Conversion ultra-sécurisée des paramètres
+    let pageParam = req.query.page;
+    let limitParam = req.query.limit;
+    
+    // Assurer que page est un entier valide
+    const pageNum = Number.isInteger(parseInt(pageParam)) && parseInt(pageParam) > 0 
+      ? parseInt(pageParam) 
+      : 1;
+    
+    // Assurer que limit est un entier valide entre 1 et 100
+    const limitNum = Number.isInteger(parseInt(limitParam)) && parseInt(limitParam) > 0 && parseInt(limitParam) <= 100
+      ? parseInt(limitParam)
+      : 10;
+    
+    // Calculer offset comme entier
+    const offsetNum = Math.max(0, (pageNum - 1) * limitNum);
+
+    console.log(`[DEBUG] My Requests - Page: ${pageNum}, Limit: ${limitNum}, Offset: ${offsetNum}, User ID: ${req.user.id}`);
 
     const requests = await executeQuery(
       `SELECT wr.*, u.first_name, u.last_name,
@@ -404,7 +417,7 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
        WHERE wr.owner_id = ?
        ORDER BY wr.requested_at DESC
        LIMIT ? OFFSET ?`,
-      [req.user.id, limitNum, offset]
+      [req.user.id, limitNum, offsetNum]
     );
 
     // Compter le total
@@ -433,12 +446,26 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
 router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, next) => {
   try {
     const { executeQuery } = require('../config/database');
-    const { page = 1, limit = 10, status } = req.query;
     
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    // Conversion ultra-sécurisée des paramètres
+    let pageParam = req.query.page;
+    let limitParam = req.query.limit;
+    let statusParam = req.query.status;
+    
+    // Assurer que page est un entier valide
+    const pageNum = Number.isInteger(parseInt(pageParam)) && parseInt(pageParam) > 0 
+      ? parseInt(pageParam) 
+      : 1;
+    
+    // Assurer que limit est un entier valide entre 1 et 100
+    const limitNum = Number.isInteger(parseInt(limitParam)) && parseInt(limitParam) > 0 && parseInt(limitParam) <= 100
+      ? parseInt(limitParam)
+      : 10;
+    
+    // Calculer offset comme entier
+    const offsetNum = Math.max(0, (pageNum - 1) * limitNum);
+
+    console.log(`[DEBUG] Pagination - Page: ${pageNum}, Limit: ${limitNum}, Offset: ${offsetNum}, Status: ${statusParam}`);
 
     let query = `
       SELECT wr.*, u.first_name, u.last_name, u.email,
@@ -451,13 +478,16 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
     `;
     const params = [];
 
-    if (status) {
+    if (statusParam && typeof statusParam === 'string' && statusParam.trim().length > 0) {
       query += ' AND wr.status = ?';
-      params.push(status);
+      params.push(statusParam.trim());
     }
 
     query += ' ORDER BY wr.requested_at DESC LIMIT ? OFFSET ?';
-    params.push(limitNum, offset);
+    params.push(limitNum, offsetNum);
+
+    console.log(`[DEBUG] Query: ${query}`);
+    console.log(`[DEBUG] Params:`, params, `Types:`, params.map(p => typeof p));
 
     const requests = await executeQuery(query, params);
 

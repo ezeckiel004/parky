@@ -54,10 +54,7 @@ router.get('/', async (req, res, next) => {
       available
     } = req.query;
 
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * limit;
 
     // Construire la requête de base
     let query = `
@@ -111,8 +108,11 @@ router.get('/', async (req, res, next) => {
       query += ' HAVING available_spaces > 0';
     }
 
-    query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-    queryParams.push(limitNum, offset);
+    const safeLimit = Number.isInteger(parseInt(limit)) ? parseInt(limit) : 10;
+const safeOffset = Number.isInteger(parseInt(offset)) ? parseInt(offset) : 0;
+
+query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
+    queryParams.push(parseInt(limit), offset);
 
     const parkings = await executeQuery(query, queryParams);
 
@@ -437,11 +437,7 @@ router.delete('/:id', authorizeRoles('proprietaire', 'admin'), async (req, res, 
 router.get('/owner/my-parkings', authenticateToken, authorizeRoles('proprietaire', 'admin'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    
-    // Conversion sécurisée en entiers
-    const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 10;
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * limit;
 
     let query = `
       SELECT p.*, 
@@ -460,8 +456,7 @@ router.get('/owner/my-parkings', authenticateToken, authorizeRoles('proprietaire
       query += ' AND p.status != "deleted"';
     }
 
-    query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-    queryParams.push(limitNum, offset);
+    query += ` GROUP BY p.id ORDER BY p.created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`;
 
     const parkings = await executeQuery(query, queryParams);
     

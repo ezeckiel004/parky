@@ -2,8 +2,15 @@ const nodemailer = require('nodemailer');
 
 class EmailService {
   constructor() {
+    // Vérifier les variables d'environnement
+    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.warn('⚠️  Variables d\'environnement email manquantes. Service email désactivé.');
+      this.disabled = true;
+      return;
+    }
+
     // Configuration du transporteur email
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: parseInt(process.env.EMAIL_PORT) || 587,
       secure: false, // true pour 465, false pour les autres ports
@@ -13,11 +20,14 @@ class EmailService {
       },
     });
 
+    this.disabled = false;
     // Vérifier la configuration
     this.verifyConnection();
   }
 
   async verifyConnection() {
+    if (this.disabled) return;
+    
     try {
       await this.transporter.verify();
       console.log('✅ Service email configuré avec succès');
@@ -260,6 +270,11 @@ class EmailService {
 
   // Méthode générique d'envoi d'email
   async sendEmail(to, subject, html, text = null) {
+    if (this.disabled) {
+      console.log(`📧 Service email désactivé - Email non envoyé à ${to}: ${subject}`);
+      return { success: false, error: 'Service email désactivé' };
+    }
+
     try {
       const mailOptions = {
         from: `"Parky" <${process.env.EMAIL_USER}>`,

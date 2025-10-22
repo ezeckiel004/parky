@@ -11,9 +11,9 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
+  // Options MySQL2 valides
+  idleTimeout: 60000,
+  maxIdle: 10
 };
 
 // Création du pool de connexions

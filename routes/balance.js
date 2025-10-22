@@ -400,7 +400,7 @@ router.get('/my-withdrawal-requests', authorizeRoles('proprietaire'), async (req
        WHERE wr.owner_id = ?
        ORDER BY wr.requested_at DESC
        LIMIT ? OFFSET ?`,
-      [req.user.id, parseInt(limit), offset]
+      [req.user.id, parseInt(limit), parseInt(offset)]
     );
 
     // Compter le total
@@ -449,7 +449,7 @@ router.get('/withdrawal-requests', authorizeRoles('admin'), async (req, res, nex
     }
 
     query += ' ORDER BY wr.requested_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(parseInt(limit), parseInt(offset));
 
     const requests = await executeQuery(query, params);
 

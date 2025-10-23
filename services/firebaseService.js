@@ -89,12 +89,23 @@ class FirebaseService {
     try {
       this.initialize();
 
+      // Convertir toutes les valeurs data en strings (exigence Firebase)
+      const stringData = {};
+      if (notification.data && typeof notification.data === 'object') {
+        Object.keys(notification.data).forEach(key => {
+          const value = notification.data[key];
+          if (value !== null && value !== undefined) {
+            stringData[key] = typeof value === 'string' ? value : JSON.stringify(value);
+          }
+        });
+      }
+
       const message = {
         notification: {
           title: notification.title,
           body: notification.body
         },
-        data: notification.data || {},
+        data: stringData,
         token: fcmToken
       };
 

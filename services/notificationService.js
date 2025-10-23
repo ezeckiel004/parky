@@ -22,12 +22,32 @@ class NotificationService {
       'PARKING_ISSUE': 'system',
       'ACCOUNT_WARNING': 'system',
       'WITHDRAWAL_REQUEST': 'system',
+      'TEST': 'system',
       
       // Types promotion
       'MARKETING': 'promotion'
     };
     
     return typeMapping[specificType] || 'system';
+  }
+
+  /**
+   * Nettoyer et formater les données pour FCM (toutes les valeurs doivent être des strings)
+   */
+  _sanitizeDataForFCM(data) {
+    const sanitizedData = {};
+    
+    if (data && typeof data === 'object') {
+      Object.keys(data).forEach(key => {
+        const value = data[key];
+        if (value !== null && value !== undefined) {
+          // Convertir en string si ce n'est pas déjà le cas
+          sanitizedData[key] = typeof value === 'string' ? value : String(value);
+        }
+      });
+    }
+    
+    return sanitizedData;
   }
 
   /**
@@ -64,14 +84,17 @@ class NotificationService {
         const fcmToken = userTokens[0].fcm_token;
         
         try {
+          // Nettoyer les données pour FCM
+          const fcmData = this._sanitizeDataForFCM({
+            ...data,
+            notificationId: notificationId.toString(),
+            type: type.toString()
+          });
+
           await firebaseService.sendNotificationToToken(fcmToken, {
             title,
             body,
-            data: {
-              ...data,
-              notificationId: notificationId.toString(),
-              type
-            }
+            data: fcmData
           });
         } catch (fcmError) {
           console.error('❌ Erreur Firebase FCM (notification sauvegardée):', fcmError.message);

@@ -27,13 +27,35 @@ router.put('/fcm-token', [
     const { fcmToken } = req.body;
     const userId = req.user.id;
 
+    // Vérifier si ce token est déjà utilisé par un autre utilisateur
+    const existingUsers = await executeQuery(
+      'SELECT id, first_name, email FROM users WHERE fcm_token = ? AND id != ?',
+      [fcmToken, userId]
+    );
+
+    if (existingUsers.length > 0) {
+      console.log(`⚠️ Token FCM déjà utilisé par ${existingUsers.length} autre(s) utilisateur(s)`);
+      
+      // Supprimer le token des autres utilisateurs (un token = un appareil = un utilisateur)
+      await executeQuery(
+        'UPDATE users SET fcm_token = NULL WHERE fcm_token = ? AND id != ?',
+        [fcmToken, userId]
+      );
+      
+      console.log(`🧹 Token FCM retiré des autres utilisateurs`);
+    }
+
+    // Assigner le token au nouvel utilisateur
     await executeQuery(
       'UPDATE users SET fcm_token = ? WHERE id = ?',
       [fcmToken, userId]
     );
 
     res.json({
-      message: 'FCM token mis à jour avec succès'
+      message: 'FCM token mis à jour avec succès',
+      info: existingUsers.length > 0 ? 
+        `Token retiré de ${existingUsers.length} autre(s) utilisateur(s)` : 
+        'Token assigné uniquement à cet utilisateur'
     });
 
   } catch (error) {

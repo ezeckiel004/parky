@@ -7,9 +7,9 @@ class FacebookAuthService {
    */
   async verifyFacebookToken(facebookToken) {
     try {
-      // Vérifier le token avec l'API Facebook Graph
+      // Vérifier le token avec l'API Facebook Graph (sans email)
       const response = await axios.get(
-        `https://graph.facebook.com/me?access_token=${facebookToken}&fields=id,name,email,picture.width(200).height(200)`
+        `https://graph.facebook.com/me?access_token=${facebookToken}&fields=id,name,picture.width(200).height(200)`
       );
 
       if (!response.data || !response.data.id) {
@@ -21,7 +21,7 @@ class FacebookAuthService {
       return {
         facebook_id: response.data.id,
         name: response.data.name,
-        email: response.data.email,
+        email: null, // Email pas disponible pour l'instant
         picture_url: response.data.picture?.data?.url
       };
 
@@ -54,7 +54,7 @@ class FacebookAuthService {
         return users[0];
       }
 
-      // Si pas trouvé par facebook_id, chercher par email
+      // Si pas trouvé par facebook_id, chercher par email (si disponible)
       if (email) {
         users = await executeQuery(
           'SELECT * FROM users WHERE email = ?',
@@ -73,16 +73,19 @@ class FacebookAuthService {
         }
       }
 
-      // Créer un nouvel utilisateur
-      const [firstName, ...lastNameParts] = (name || '').split(' ');
+      // Créer un nouvel utilisateur (email peut être null)
+      const [firstName, ...lastNameParts] = (name || 'Utilisateur Facebook').split(' ');
       const lastName = lastNameParts.join(' ') || '';
+      
+      // Générer un email temporaire si pas d'email
+      const tempEmail = email || `facebook_${facebook_id}@parky.temp`;
 
       const result = await executeQuery(
         `INSERT INTO users (
           email, first_name, last_name, facebook_id, profile_picture_url, 
           role, is_verified, created_at
         ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
-        [email, firstName, lastName, facebook_id, picture_url]
+        [tempEmail, firstName, lastName, facebook_id, picture_url]
       );
 
       const newUser = await executeQuery(

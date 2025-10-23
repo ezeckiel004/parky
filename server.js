@@ -93,15 +93,15 @@ app.use(express.static(path.join(__dirname, '../'), {
 
 // Routes spécifiques pour les pages légales
 app.get('/privacy-policy.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../privacy-policy.html'));
+  res.sendFile(path.join(__dirname, 'privacy-policy.html'));
 });
 
 app.get('/data-deletion.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../data-deletion.html'));
+  res.sendFile(path.join(__dirname, 'data-deletion.html'));
 });
 
 app.get('/terms-of-service.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../terms-of-service.html'));
+  res.sendFile(path.join(__dirname, 'terms-of-service.html'));
 });
 
 // Routes publiques

@@ -421,7 +421,8 @@ router.post('/facebook', [
     res.json(authResponse);
 
   } catch (error) {
-    console.error('❌ Erreur authentification Facebook:', error.message);
+    console.error('❌ Erreur authentification Facebook complète:', error);
+    console.error('❌ Stack trace:', error.stack);
     
     if (error.message === 'Token Facebook invalide') {
       return res.status(401).json({
@@ -434,6 +435,14 @@ router.post('/facebook', [
       return res.status(400).json({
         error: 'Validation échouée',
         message: error.message
+      });
+    }
+    
+    if (error.message.includes('création de l\'utilisateur')) {
+      return res.status(500).json({
+        error: 'Erreur base de données',
+        message: 'Erreur lors de la création de l\'utilisateur Facebook',
+        details: error.message
       });
     }
     

@@ -77,24 +77,48 @@ class FacebookAuthService {
       const [firstName, ...lastNameParts] = (name || 'Utilisateur Facebook').split(' ');
       const lastName = lastNameParts.join(' ') || '';
       
-      // Générer un email temporaire si pas d'email
-      const tempEmail = email || `facebook_${facebook_id}@parky.temp`;
+      // Générer un email temporaire unique avec timestamp
+      const tempEmail = email || `facebook_${facebook_id}_${Date.now()}@parky.temp`;
 
-      const result = await executeQuery(
-        `INSERT INTO users (
-          email, first_name, last_name, facebook_id, profile_picture_url, 
-          role, is_verified, created_at
-        ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
-        [tempEmail, firstName, lastName, facebook_id, picture_url]
-      );
+      console.log('📝 Création utilisateur avec:', { tempEmail, firstName, lastName, facebook_id });
 
-      const newUser = await executeQuery(
-        'SELECT * FROM users WHERE id = ?',
-        [result.insertId]
-      );
+      try {
+        const result = await executeQuery(
+          `INSERT INTO users (
+            email, first_name, last_name, facebook_id, profile_picture_url, 
+            role, is_verified, created_at
+          ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
+          [tempEmail, firstName, lastName, facebook_id, picture_url]
+        );
 
-      console.log('✅ Nouvel utilisateur Facebook créé');
-      return newUser[0];
+        const newUser = await executeQuery(
+          'SELECT * FROM users WHERE id = ?',
+          [result.insertId]
+        );
+
+        console.log('✅ Nouvel utilisateur Facebook créé avec ID:', result.insertId);
+        return newUser[0];
+        
+      } catch (insertError) {
+        console.error('❌ Erreur insertion SQL:', insertError);
+        
+        // Si erreur de duplication, essayer de récupérer l'utilisateur existant
+        if (insertError.code === 'ER_DUP_ENTRY') {
+          console.log('📋 Utilisateur semble exister, tentative de récupération...');
+          
+          const existingUser = await executeQuery(
+            'SELECT * FROM users WHERE facebook_id = ?',
+            [facebook_id]
+          );
+          
+          if (existingUser.length > 0) {
+            console.log('✅ Utilisateur Facebook existant récupéré');
+            return existingUser[0];
+          }
+        }
+        
+        throw insertError;
+      }
 
     } catch (error) {
       console.error('❌ Erreur création utilisateur Facebook:', error);

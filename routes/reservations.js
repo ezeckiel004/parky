@@ -4,6 +4,7 @@ const { executeQuery } = require('../config/database');
 const { createError } = require('../middleware/errorHandler');
 const moment = require('moment');
 const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -146,6 +147,15 @@ router.post('/', reservationValidation, async (req, res, next) => {
     } catch (emailError) {
       console.error('❌ Erreur envoi email de confirmation:', emailError.message);
       // Ne pas faire échouer la réservation si l'email échoue
+    }
+
+    // Envoyer les notifications push
+    try {
+      await notificationService.sendReservationNotifications(reservationData);
+      console.log('✅ Notifications de réservation envoyées');
+    } catch (notificationError) {
+      console.error('❌ Erreur envoi notifications:', notificationError.message);
+      // Ne pas faire échouer la réservation si les notifications échouent
     }
 
     res.status(201).json({

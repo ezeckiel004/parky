@@ -112,10 +112,19 @@ class NotificationService {
    * Notifications pour les réservations
    */
   async sendReservationNotifications(reservationData, type) {
+    console.log(`🔔 Envoi notification réservation - Type: ${type}`);
+    console.log(`📊 Données reçues:`, {
+      ownerId: reservationData.ownerId,
+      clientName: reservationData.clientName,
+      parkingName: reservationData.parkingName,
+      reservationId: reservationData.reservationId
+    });
+
     const notifications = [];
 
     switch (type) {
       case 'NEW_RESERVATION':
+        console.log(`➡️ Envoi notification "Nouvelle réservation" au propriétaire (ID: ${reservationData.ownerId})`);
         // Client → Propriétaire
         notifications.push(this.sendNotification({
           userId: reservationData.ownerId,
@@ -176,8 +185,13 @@ class NotificationService {
           relatedId: reservationData.reservationId
         }));
         break;
+
+      default:
+        console.log(`⚠️ Type de notification réservation non géré: ${type}`);
+        return Promise.resolve([]);
     }
 
+    console.log(`📤 ${notifications.length} notification(s) à envoyer`);
     return Promise.allSettled(notifications);
   }
 

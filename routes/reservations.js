@@ -119,14 +119,16 @@ router.post('/', reservationValidation, async (req, res, next) => {
 
     const reservationId = result.insertId;
 
-    // Récupérer la réservation créée avec les infos utilisateur
+    // Récupérer la réservation créée avec les infos utilisateur ET propriétaire
     const reservation = await executeQuery(
-      `SELECT r.*, ps.space_number, p.name as parking_name, p.address,
-              u.first_name, u.last_name, u.email
+      `SELECT r.*, ps.space_number, p.id as parking_id, p.name as parking_name, p.address, p.owner_id,
+              u.first_name, u.last_name, u.email,
+              owner.first_name as owner_first_name, owner.last_name as owner_last_name
        FROM reservations r
        JOIN parking_spaces ps ON r.space_id = ps.id
        JOIN parkings p ON ps.parking_id = p.id
        JOIN users u ON r.user_id = u.id
+       JOIN users owner ON p.owner_id = owner.id
        WHERE r.id = ?`,
       [reservationId]
     );
@@ -151,7 +153,16 @@ router.post('/', reservationValidation, async (req, res, next) => {
 
     // Envoyer les notifications push
     try {
-      await notificationService.sendReservationNotifications(reservationData);
+      const notificationData = {
+        ownerId: reservationData.owner_id,
+        clientId: reservationData.user_id,
+        clientName: `${reservationData.first_name} ${reservationData.last_name}`,
+        parkingName: reservationData.parking_name,
+        reservationId: reservationData.id,
+        parkingId: reservationData.parking_id
+      };
+      
+      await notificationService.sendReservationNotifications(notificationData, 'NEW_RESERVATION');
       console.log('✅ Notifications de réservation envoyées');
     } catch (notificationError) {
       console.error('❌ Erreur envoi notifications:', notificationError.message);

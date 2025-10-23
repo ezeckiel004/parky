@@ -140,11 +140,7 @@ class FacebookAuthService {
    * Générer la réponse d'authentification
    */
   generateAuthResponse(user, generateToken) {
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role
-    });
+    const token = generateToken(user.id, user.email, user.role);
 
     return {
       success: true,

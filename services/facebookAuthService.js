@@ -76,8 +76,8 @@ class FacebookAuthService {
         const result = await executeQuery(
           `INSERT INTO users (
             email, first_name, last_name, facebook_id, profile_picture_url, 
-            role, is_verified, created_at
-          ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
+            role, created_at
+          ) VALUES (?, ?, ?, ?, ?, 'client', NOW())`,
           [uniqueEmail, firstName, lastName, facebook_id, picture_url]
         );
 
@@ -111,8 +111,8 @@ class FacebookAuthService {
           const retryResult = await executeQuery(
             `INSERT INTO users (
               email, first_name, last_name, facebook_id, profile_picture_url, 
-              role, is_verified, created_at
-            ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
+              role, created_at
+            ) VALUES (?, ?, ?, ?, ?, 'client', NOW())`,
             [superUniqueEmail, firstName, lastName, facebook_id, picture_url]
           );
 

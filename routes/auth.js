@@ -6,6 +6,7 @@ const { generateToken } = require('../middleware/auth');
 const { createError } = require('../middleware/errorHandler');
 const emailService = require('../services/emailService');
 const googleAuthService = require('../services/googleAuthService');
+const facebookAuthService = require('../services/facebookAuthService');
 
 const router = express.Router();
 
@@ -357,6 +358,74 @@ router.post('/google', [
       return res.status(503).json({
         error: 'Service indisponible',
         message: 'L\'authentification Google n\'est pas configurée sur ce serveur'
+      });
+    }
+    
+    next(error);
+  }
+});
+
+// Route d'authentification Facebook
+router.post('/facebook', [
+  body('facebook_token').notEmpty().withMessage('Token Facebook requis'),
+  body('facebook_id').notEmpty().withMessage('ID Facebook requis'),
+  body('email').optional().isEmail().withMessage('Email invalide'),
+  body('first_name').optional().trim().isLength({ min: 1 }).withMessage('Prénom invalide'),
+  body('last_name').optional().trim().isLength({ min: 1 }).withMessage('Nom invalide')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        message: 'Token Facebook requis',
+        details: errors.array()
+      });
+    }
+
+    const { facebook_token, facebook_id, email, first_name, last_name, profile_picture_url } = req.body;
+
+    // Vérifier le token Facebook
+    const facebookData = await facebookAuthService.verifyFacebookToken(facebook_token);
+    
+    // Vérifier que l'ID Facebook correspond
+    if (facebookData.facebook_id !== facebook_id) {
+      return res.status(401).json({
+        error: 'Token invalide',
+        message: 'L\'ID Facebook ne correspond pas au token fourni'
+      });
+    }
+
+    // Utiliser les données du front-end si disponibles, sinon celles de Facebook
+    const userData = {
+      facebook_id: facebook_id,
+      name: `${first_name || ''} ${last_name || ''}`.trim() || facebookData.name,
+      email: email || facebookData.email,
+      picture_url: profile_picture_url || facebookData.picture_url
+    };
+    
+    // Créer ou récupérer l'utilisateur
+    const user = await facebookAuthService.findOrCreateFacebookUser(userData, executeQuery);
+    
+    // Générer la réponse avec token JWT
+    const authResponse = facebookAuthService.generateAuthResponse(user, generateToken);
+    
+    res.json(authResponse);
+
+  } catch (error) {
+    console.error('❌ Erreur authentification Facebook:', error.message);
+    
+    if (error.message === 'Token Facebook invalide') {
+      return res.status(401).json({
+        error: 'Token invalide',
+        message: 'Le token Facebook fourni est invalide ou expiré'
+      });
+    }
+    
+    if (error.message.includes('validation')) {
+      return res.status(400).json({
+        error: 'Validation échouée',
+        message: error.message
       });
     }
     

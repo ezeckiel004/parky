@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -80,6 +81,28 @@ app.use('/api/webhooks', webhookRoutes);
 // Middleware pour parser le JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Servir les fichiers statiques (pages légales)
+app.use(express.static(path.join(__dirname, '../'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+  }
+}));
+
+// Routes spécifiques pour les pages légales
+app.get('/privacy-policy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../privacy-policy.html'));
+});
+
+app.get('/data-deletion.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../data-deletion.html'));
+});
+
+app.get('/terms-of-service.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../terms-of-service.html'));
+});
 
 // Routes publiques
 app.use('/api/auth', authRoutes);

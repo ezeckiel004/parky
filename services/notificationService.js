@@ -313,8 +313,11 @@ class NotificationService {
       query += ' AND is_read = 0';
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    // Intégrer LIMIT et OFFSET directement dans la requête (pas en paramètres préparés)
+    const safeLimit = Number.isInteger(parseInt(limit)) ? parseInt(limit) : 20;
+    const safeOffset = Number.isInteger(parseInt(offset)) ? parseInt(offset) : 0;
+
+    query += ` ORDER BY created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
 
     const notifications = await executeQuery(query, params);
     

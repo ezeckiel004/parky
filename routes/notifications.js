@@ -249,4 +249,43 @@ router.post('/test', [
   }
 });
 
+/**
+ * Test direct avec token FCM (dev seulement)
+ */
+router.post('/direct-test', [
+  body('fcmToken').notEmpty().withMessage('Token FCM requis'),
+  body('title').notEmpty().withMessage('Titre requis'),
+  body('body').notEmpty().withMessage('Corps requis')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        details: errors.array()
+      });
+    }
+
+    const { fcmToken, title, body } = req.body;
+    const firebaseService = require('../services/firebaseService');
+
+    await firebaseService.sendNotificationToToken(fcmToken, {
+      title,
+      body,
+      data: {
+        test: 'true',
+        type: 'DIRECT_TEST'
+      }
+    });
+
+    res.json({
+      message: 'Notification directe envoyée au token',
+      token: fcmToken.substring(0, 20) + '...'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

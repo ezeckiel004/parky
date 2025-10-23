@@ -37,8 +37,16 @@ class FirebaseService {
           credential: admin.credential.cert(serviceAccount),
           projectId: process.env.FIREBASE_PROJECT_ID
         });
-      } else {
-        throw new Error('Configuration Firebase manquante');
+      }
+      // Option 3: Fallback vers le fichier local
+      else {
+        const path = require('path');
+        const serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
+        const serviceAccount = require(serviceAccountPath);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId: serviceAccount.project_id
+        });
       }
 
       this.initialized = true;

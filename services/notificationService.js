@@ -74,7 +74,7 @@ class NotificationService {
             }
           });
         } catch (fcmError) {
-          console.error('❌ Erreur FCM (notification sauvegardée):', fcmError.message);
+          console.error('❌ Erreur Firebase FCM (notification sauvegardée):', fcmError.message);
         }
       }
 

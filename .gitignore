@@ -143,6 +143,11 @@ public/uploads/
 *.key
 *.crt
 
+# Firebase Service Account (SÉCURITÉ CRITIQUE)
+config/firebase-service-account.json
+firebase-service-account.json
+*firebase-adminsdk*.json
+
 # PM2
 .pm2/
 

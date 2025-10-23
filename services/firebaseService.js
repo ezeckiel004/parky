@@ -85,7 +85,7 @@ class FirebaseService {
   /**
    * Envoyer une notification à un token spécifique
    */
-  async sendNotificationToToken(fcmToken, notification) {
+  async sendNotificationToToken(fcmToken, notification, userId = null) {
     try {
       this.initialize();
 
@@ -114,7 +114,42 @@ class FirebaseService {
       return response;
     } catch (error) {
       console.error('❌ Erreur envoi notification au token:', error);
+      
+      // Gérer les tokens invalides
+      if (error.code === 'messaging/registration-token-not-registered' || 
+          error.code === 'messaging/invalid-registration-token') {
+        console.log('🧹 Token FCM invalide détecté, nettoyage en cours...');
+        await this._cleanInvalidToken(fcmToken, userId);
+      }
+      
       throw error;
+    }
+  }
+
+  /**
+   * Nettoyer un token FCM invalide de la base de données
+   */
+  async _cleanInvalidToken(fcmToken, userId = null) {
+    try {
+      const { executeQuery } = require('../config/database');
+      
+      if (userId) {
+        // Nettoyer pour un utilisateur spécifique
+        await executeQuery(
+          'UPDATE users SET fcm_token = NULL WHERE id = ? AND fcm_token = ?',
+          [userId, fcmToken]
+        );
+        console.log(`✅ Token FCM invalide supprimé pour l'utilisateur ${userId}`);
+      } else {
+        // Nettoyer tous les utilisateurs avec ce token
+        const result = await executeQuery(
+          'UPDATE users SET fcm_token = NULL WHERE fcm_token = ?',
+          [fcmToken]
+        );
+        console.log(`✅ Token FCM invalide supprimé pour ${result.affectedRows} utilisateur(s)`);
+      }
+    } catch (dbError) {
+      console.error('❌ Erreur lors du nettoyage du token invalide:', dbError);
     }
   }
 

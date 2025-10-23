@@ -95,7 +95,7 @@ class NotificationService {
             title,
             body,
             data: fcmData
-          });
+          }, userId); // Passer l'userId pour le nettoyage automatique
         } catch (fcmError) {
           console.error('❌ Erreur Firebase FCM (notification sauvegardée):', fcmError.message);
         }

@@ -369,7 +369,15 @@ router.post('/google', [
 router.post('/facebook', [
   body('facebook_token').notEmpty().withMessage('Token Facebook requis'),
   body('facebook_id').notEmpty().withMessage('ID Facebook requis'),
-  body('email').optional().isEmail().withMessage('Email invalide'),
+  body('email').optional({ nullable: true, checkFalsy: false }).custom((value) => {
+    if (value === null || value === undefined || value === '') {
+      return true; // Allow null/undefined/empty
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      throw new Error('Email invalide');
+    }
+    return true;
+  }),
   body('first_name').optional().trim().isLength({ min: 1 }).withMessage('Prénom invalide'),
   body('last_name').optional().trim().isLength({ min: 1 }).withMessage('Nom invalide')
 ], async (req, res, next) => {

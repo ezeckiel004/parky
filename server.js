@@ -16,6 +16,7 @@ const paymentRoutes = require('./routes/payments');
 const webhookRoutes = require('./routes/webhooks');
 const balanceRoutes = require('./routes/balance');
 const favoriteRoutes = require('./routes/favorites');
+const notificationRoutes = require('./routes/notifications');
 
 // Import des middlewares
 const { errorHandler } = require('./middleware/errorHandler');
@@ -90,6 +91,7 @@ app.use('/api/reservations', authenticateToken, reservationRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/balance', authenticateToken, balanceRoutes);
 app.use('/api/favorites', authenticateToken, favoriteRoutes);
+app.use('/api/notifications', authenticateToken, notificationRoutes);
 
 // Route de santé de l'API
 app.get('/api/health', (req, res) => {

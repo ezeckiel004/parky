@@ -330,7 +330,23 @@ class NotificationService {
     return {
       notifications: notifications.map(notif => ({
         ...notif,
-        data: notif.data ? JSON.parse(notif.data) : {}
+        data: (() => {
+          try {
+            // Si data est déjà un objet, le retourner tel quel
+            if (typeof notif.data === 'object' && notif.data !== null) {
+              return notif.data;
+            }
+            // Si data est une chaîne JSON, la parser
+            if (typeof notif.data === 'string' && notif.data.trim() !== '') {
+              return JSON.parse(notif.data);
+            }
+            // Sinon, retourner un objet vide
+            return {};
+          } catch (error) {
+            console.error('❌ Erreur parsing notification data:', error, 'Data:', notif.data);
+            return {};
+          }
+        })()
       })),
       unreadCount: unreadCount[0].count
     };

@@ -37,13 +37,15 @@ class FacebookAuthService {
   }
 
   /**
-   * Trouver ou créer un utilisateur Facebook
+   * Trouver ou créer un utilisateur Facebook - VERSION ROBUSTE
    */
   async findOrCreateFacebookUser(facebookData, executeQuery) {
+    const { facebook_id, name, email, picture_url } = facebookData;
+    
     try {
-      const { facebook_id, name, email, picture_url } = facebookData;
+      console.log('🔍 Recherche utilisateur Facebook ID:', facebook_id);
 
-      // D'abord, chercher par facebook_id
+      // ÉTAPE 1: Chercher par facebook_id
       let users = await executeQuery(
         'SELECT * FROM users WHERE facebook_id = ?',
         [facebook_id]
@@ -54,43 +56,32 @@ class FacebookAuthService {
         return users[0];
       }
 
-      // Si pas trouvé par facebook_id, chercher par email (si disponible)
-      if (email) {
-        users = await executeQuery(
-          'SELECT * FROM users WHERE email = ?',
-          [email]
-        );
-
-        if (users.length > 0) {
-          // Lier le compte existant avec Facebook
-          await executeQuery(
-            'UPDATE users SET facebook_id = ?, profile_picture_url = ? WHERE id = ?',
-            [facebook_id, picture_url, users[0].id]
-          );
-          
-          console.log('✅ Compte existant lié avec Facebook');
-          return { ...users[0], facebook_id, profile_picture_url: picture_url };
-        }
-      }
-
-      // Créer un nouvel utilisateur (email peut être null)
+      // ÉTAPE 2: Préparer les données pour création
       const [firstName, ...lastNameParts] = (name || 'Utilisateur Facebook').split(' ');
       const lastName = lastNameParts.join(' ') || '';
       
-      // Générer un email temporaire unique avec timestamp
-      const tempEmail = email || `facebook_${facebook_id}_${Date.now()}@parky.temp`;
+      // Email unique avec ID Facebook + timestamp pour éviter conflicts
+      const uniqueEmail = `facebook_${facebook_id}_${Date.now()}@parky.temp`;
+      
+      console.log('📝 Création nouvel utilisateur:', {
+        email: uniqueEmail,
+        firstName,
+        lastName,
+        facebook_id,
+        picture_url
+      });
 
-      console.log('📝 Création utilisateur avec:', { tempEmail, firstName, lastName, facebook_id });
-
+      // ÉTAPE 3: Insertion avec gestion d'erreur robuste
       try {
         const result = await executeQuery(
           `INSERT INTO users (
             email, first_name, last_name, facebook_id, profile_picture_url, 
             role, is_verified, created_at
           ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
-          [tempEmail, firstName, lastName, facebook_id, picture_url]
+          [uniqueEmail, firstName, lastName, facebook_id, picture_url]
         );
 
+        // Récupérer l'utilisateur créé
         const newUser = await executeQuery(
           'SELECT * FROM users WHERE id = ?',
           [result.insertId]
@@ -98,30 +89,49 @@ class FacebookAuthService {
 
         console.log('✅ Nouvel utilisateur Facebook créé avec ID:', result.insertId);
         return newUser[0];
-        
+
       } catch (insertError) {
-        console.error('❌ Erreur insertion SQL:', insertError);
-        
-        // Si erreur de duplication, essayer de récupérer l'utilisateur existant
-        if (insertError.code === 'ER_DUP_ENTRY') {
-          console.log('📋 Utilisateur semble exister, tentative de récupération...');
-          
-          const existingUser = await executeQuery(
-            'SELECT * FROM users WHERE facebook_id = ?',
-            [facebook_id]
-          );
-          
-          if (existingUser.length > 0) {
-            console.log('✅ Utilisateur Facebook existant récupéré');
-            return existingUser[0];
-          }
+        console.error('❌ Erreur insertion utilisateur:', insertError);
+
+        // ÉTAPE 4: Fallback - Chercher si l'utilisateur a été créé entre temps
+        const fallbackUser = await executeQuery(
+          'SELECT * FROM users WHERE facebook_id = ?',
+          [facebook_id]
+        );
+
+        if (fallbackUser.length > 0) {
+          console.log('✅ Utilisateur trouvé après erreur insertion (race condition)');
+          return fallbackUser[0];
         }
+
+        // ÉTAPE 5: Dernière tentative avec un email encore plus unique
+        const superUniqueEmail = `facebook_${facebook_id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}@parky.temp`;
         
-        throw insertError;
+        try {
+          const retryResult = await executeQuery(
+            `INSERT INTO users (
+              email, first_name, last_name, facebook_id, profile_picture_url, 
+              role, is_verified, created_at
+            ) VALUES (?, ?, ?, ?, ?, 'client', 1, NOW())`,
+            [superUniqueEmail, firstName, lastName, facebook_id, picture_url]
+          );
+
+          const retryUser = await executeQuery(
+            'SELECT * FROM users WHERE id = ?',
+            [retryResult.insertId]
+          );
+
+          console.log('✅ Utilisateur créé après retry avec email super unique');
+          return retryUser[0];
+
+        } catch (retryError) {
+          console.error('❌ Échec définitif création utilisateur:', retryError);
+          throw new Error('Impossible de créer l\'utilisateur Facebook après plusieurs tentatives');
+        }
       }
 
     } catch (error) {
-      console.error('❌ Erreur création utilisateur Facebook:', error);
+      console.error('❌ Erreur globale findOrCreateFacebookUser:', error);
       throw new Error('Erreur lors de la création de l\'utilisateur Facebook');
     }
   }
@@ -130,42 +140,26 @@ class FacebookAuthService {
    * Générer la réponse d'authentification
    */
   generateAuthResponse(user, generateToken) {
-    const token = generateToken(user);
-    
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    });
+
     return {
       success: true,
-      message: 'Connexion Facebook réussie',
+      message: 'Authentification Facebook réussie',
+      token: token,
       user: {
         id: user.id,
         email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        profilePictureUrl: user.profile_picture_url,
         role: user.role,
-        profile_picture_url: user.profile_picture_url,
-        facebook_id: user.facebook_id,
-        is_verified: user.is_verified
-      },
-      token
+        facebookId: user.facebook_id
+      }
     };
-  }
-
-  /**
-   * Extraire le prénom du nom complet
-   */
-  _extractFirstName(fullName) {
-    if (!fullName) return '';
-    const parts = fullName.trim().split(' ');
-    return parts[0] || '';
-  }
-
-  /**
-   * Extraire le nom de famille du nom complet
-   */
-  _extractLastName(fullName) {
-    if (!fullName) return '';
-    const parts = fullName.trim().split(' ');
-    return parts.slice(1).join(' ') || '';
   }
 }
 

@@ -2,6 +2,7 @@ const express = require('express');
 const { authorizeRoles } = require('../middleware/auth');
 const BalanceService = require('../services/balanceService');
 const emailService = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -405,6 +406,20 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
       // Ne pas faire échouer la demande même si l'email échoue
     }
 
+    // Envoyer la notification push à l'admin
+    try {
+      await notificationService.sendOwnerToAdminNotification({
+        ownerId: req.user.id,
+        ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
+        amount,
+        requestId: withdrawalRequestId
+      }, 'WITHDRAWAL_REQUEST');
+      console.log(`✅ Notification push admin envoyée pour demande de retrait #${withdrawalRequestId}`);
+    } catch (pushError) {
+      console.error('❌ Erreur envoi notification push admin:', pushError.message);
+      // Ne pas faire échouer la demande même si la notification échoue
+    }
+
     res.status(201).json({
       message: 'Demande de retrait créée avec succès',
       withdrawalRequest: {
@@ -672,6 +687,25 @@ router.patch('/withdrawal-requests/:id', authorizeRoles('admin'), async (req, re
       console.log('✅ Email de confirmation de retrait envoyé au propriétaire');
     } catch (emailError) {
       console.error('❌ Erreur envoi email confirmation retrait:', emailError.message);
+    }
+
+    // Envoyer la notification push au propriétaire
+    try {
+      const notificationType = status === 'approved' ? 'WITHDRAWAL_APPROVED' : 'WITHDRAWAL_REJECTED';
+      const notificationData = {
+        ownerId: withdrawalRequest.owner_id,
+        amount: withdrawalRequest.amount,
+        requestId: id
+      };
+
+      if (status === 'rejected') {
+        notificationData.reason = rejectionReason || 'Raison non spécifiée';
+      }
+
+      await notificationService.sendAdminToOwnerNotification(notificationData, notificationType);
+      console.log(`✅ Notification push ${status} envoyée au propriétaire pour demande de retrait #${id}`);
+    } catch (pushError) {
+      console.error('❌ Erreur envoi notification push au propriétaire:', pushError.message);
     }
 
     res.json({

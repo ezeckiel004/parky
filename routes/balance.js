@@ -377,18 +377,32 @@ router.post('/withdrawal-request', authorizeRoles('proprietaire'), async (req, r
     const withdrawalRequestId = result.insertId;
     const ownerData = ownerInfo[0];
 
+    // Récupérer l'email de l'admin
+    let adminEmail = 'admin@parky.com'; // Email par défaut
+    try {
+      const adminUser = await executeQuery(
+        'SELECT email FROM users WHERE role = "admin" AND status = "active" LIMIT 1'
+      );
+      if (adminUser.length > 0) {
+        adminEmail = adminUser[0].email;
+      }
+    } catch (adminQueryError) {
+      console.warn('⚠️ Impossible de récupérer l\'email admin, utilisation de l\'email par défaut');
+    }
+
     // Envoyer l'email de notification à l'admin
     try {
-      await emailService.sendWithdrawalRequestNotification(null, {
+      await emailService.sendWithdrawalRequestNotification(adminEmail, {
         ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
         ownerEmail: ownerData.email,
         amount,
         paymentMethod,
         requestId: withdrawalRequestId
       });
-      console.log('✅ Email de notification admin envoyé pour demande de retrait');
+      console.log(`✅ Email de notification admin envoyé à ${adminEmail} pour demande de retrait #${withdrawalRequestId}`);
     } catch (emailError) {
       console.error('❌ Erreur envoi email notification admin:', emailError.message);
+      // Ne pas faire échouer la demande même si l'email échoue
     }
 
     res.status(201).json({

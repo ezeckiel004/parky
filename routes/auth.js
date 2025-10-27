@@ -14,7 +14,7 @@ const router = express.Router();
 const registerValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .withMessage('Adresse email invalide'),
   body('password')
     .isLength({ min: 6 })
@@ -42,7 +42,7 @@ const registerValidation = [
 const loginValidation = [
   body('email')
     .isEmail()
-    .normalizeEmail()
+    .normalizeEmail({ gmail_remove_dots: false })
     .withMessage('Adresse email invalide'),
   body('password')
     .notEmpty()
@@ -208,7 +208,7 @@ router.get('/verify', async (req, res, next) => {
 
 // Route de réinitialisation de mot de passe
 router.post('/forgot-password', [
-  body('email').isEmail().normalizeEmail().withMessage('Adresse email invalide')
+  body('email').isEmail().normalizeEmail({ gmail_remove_dots: false }).withMessage('Adresse email invalide')
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);

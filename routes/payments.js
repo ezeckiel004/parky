@@ -126,8 +126,20 @@ router.post('/confirm-payment', [
 
     const paymentData = payment[0];
 
-    // Envoyer l'email de confirmation de paiement
+    // Envoyer les emails UNIQUEMENT après confirmation du paiement Stripe
     try {
+      // 1. Email de confirmation de réservation (maintenant envoyé après paiement)
+      await emailService.sendReservationConfirmation(paymentData.email, {
+        userName: `${paymentData.first_name} ${paymentData.last_name}`,
+        parkingName: paymentData.parking_name,
+        startTime: paymentData.start_time,
+        endTime: paymentData.end_time,
+        totalAmount: paymentData.amount,
+        reservationId: paymentData.reservation_id
+      });
+      console.log('✅ Email de confirmation de réservation envoyé (après paiement)');
+
+      // 2. Email de confirmation de paiement
       await emailService.sendPaymentConfirmation(paymentData.email, {
         userName: `${paymentData.first_name} ${paymentData.last_name}`,
         amount: paymentData.amount,
@@ -141,7 +153,7 @@ router.post('/confirm-payment', [
       });
       console.log('✅ Email de confirmation de paiement envoyé');
 
-      // Envoyer aussi le reçu
+      // 3. Reçu de paiement
       await emailService.sendPaymentReceipt(paymentData.email, {
         userName: `${paymentData.first_name} ${paymentData.last_name}`,
         amount: paymentData.amount,
@@ -155,7 +167,7 @@ router.post('/confirm-payment', [
       });
       console.log('✅ Reçu de paiement envoyé');
     } catch (emailError) {
-      console.error('❌ Erreur envoi emails de paiement:', emailError.message);
+      console.error('❌ Erreur envoi emails après paiement:', emailError.message);
     }
 
     res.json({

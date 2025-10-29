@@ -135,21 +135,9 @@ router.post('/', reservationValidation, async (req, res, next) => {
 
     const reservationData = reservation[0];
 
-    // Envoyer l'email de confirmation de réservation
-    try {
-      await emailService.sendReservationConfirmation(reservationData.email, {
-        userName: `${reservationData.first_name} ${reservationData.last_name}`,
-        parkingName: reservationData.parking_name,
-        startTime: reservationData.start_time,
-        endTime: reservationData.end_time,
-        totalAmount: reservationData.total_amount,
-        reservationId: reservationData.id
-      });
-      console.log('✅ Email de confirmation de réservation envoyé');
-    } catch (emailError) {
-      console.error('❌ Erreur envoi email de confirmation:', emailError.message);
-      // Ne pas faire échouer la réservation si l'email échoue
-    }
+    // NOTE: L'email de confirmation de réservation sera envoyé après confirmation du paiement
+    // dans la route /payments/confirm-payment pour éviter d'envoyer des confirmations
+    // pour des réservations non payées
 
     // Envoyer les notifications push
     try {

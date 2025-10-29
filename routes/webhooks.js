@@ -5,17 +5,42 @@ const StripeService = require('../services/stripeService');
 
 const router = express.Router();
 
+// Route de test pour vérifier que l'endpoint webhook existe
+router.get('/stripe', (req, res) => {
+  res.json({
+    message: 'Endpoint webhook Stripe actif',
+    endpoint: '/api/webhooks/stripe',
+    method: 'POST',
+    status: 'ready',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ? 'configured' : 'missing'
+  });
+});
+
 // Middleware pour traiter les webhooks Stripe
 // IMPORTANT : Ce endpoint doit être configuré AVANT le middleware express.json()
 router.post('/stripe', express.raw({type: 'application/json'}), async (req, res) => {
+  console.log('🔔 Webhook Stripe reçu');
+  console.log('Headers:', Object.keys(req.headers));
+  console.log('Body type:', typeof req.body);
+  console.log('Body length:', req.body ? req.body.length : 'N/A');
+  
   const sig = req.headers['stripe-signature'];
   let event;
+
+  // Vérifier que le secret webhook est configuré
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET non configuré');
+    return res.status(500).send('Webhook secret non configuré');
+  }
 
   try {
     // Vérifier la signature du webhook
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    console.log('✅ Signature webhook validée - Type:', event.type);
   } catch (err) {
-    console.error('Erreur webhook signature:', err.message);
+    console.error('❌ Erreur webhook signature:', err.message);
+    console.error('Signature reçue:', sig);
+    console.error('Secret utilisé:', process.env.STRIPE_WEBHOOK_SECRET ? '[CONFIGURED]' : '[MISSING]');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 

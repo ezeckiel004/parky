@@ -5,6 +5,23 @@ const StripeService = require('../services/stripeService');
 
 const router = express.Router();
 
+// Mapper les statuts Stripe vers les statuts de notre base de données
+function mapStripeStatusToDBStatus(stripeStatus) {
+  const statusMapping = {
+    // Statuts Stripe → Statuts DB
+    'requires_payment_method': 'pending',
+    'requires_confirmation': 'pending', 
+    'requires_action': 'pending',
+    'processing': 'pending',
+    'succeeded': 'completed',
+    'canceled': 'failed',
+    'payment_failed': 'failed',
+    'requires_capture': 'pending'
+  };
+  
+  return statusMapping[stripeStatus] || 'pending';
+}
+
 // Route de test pour vérifier que l'endpoint webhook existe
 router.get('/stripe', (req, res) => {
   res.json({
@@ -267,13 +284,19 @@ async function handlePaymentIntentCreated(paymentIntent) {
     if (existingPayment.length > 0) {
       console.log('✅ Payment Intent déjà enregistré, ID:', existingPayment[0].id);
       
+      // Mapper le statut Stripe vers le statut DB
+      const dbStatus = mapStripeStatusToDBStatus(paymentIntent.status);
+      console.log(`🔄 Mapping statut: ${paymentIntent.status} → ${dbStatus}`);
+      
       // Mettre à jour le statut si nécessaire
-      if (existingPayment[0].status !== paymentIntent.status) {
+      if (existingPayment[0].status !== dbStatus) {
         await executeQuery(
           'UPDATE payments SET status = ?, updated_at = NOW() WHERE stripe_payment_intent_id = ?',
-          [paymentIntent.status, paymentIntent.id]
+          [dbStatus, paymentIntent.id]
         );
-        console.log(`📝 Status mis à jour: ${existingPayment[0].status} → ${paymentIntent.status}`);
+        console.log(`📝 Status mis à jour: ${existingPayment[0].status} → ${dbStatus}`);
+      } else {
+        console.log(`ℹ️ Status déjà à jour: ${dbStatus}`);
       }
     } else {
       console.log('ℹ️ Payment Intent créé côté Stripe, en attente d\'enregistrement côté application');

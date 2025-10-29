@@ -23,9 +23,6 @@ const notificationRoutes = require('./routes/notifications');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticateToken } = require('./middleware/auth');
 
-// Import des services
-const ReservationCleanupService = require('./services/reservationCleanupService');
-
 // Configuration de sécurité
 app.use(helmet());
 
@@ -156,10 +153,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 API disponible sur le réseau: http://192.168.100.12:${PORT}/api`);
   console.log(`🔍 Santé de l'API (local): http://localhost:${PORT}/api/health`);
   console.log(`🔍 Santé de l'API (réseau): http://192.168.100.12:${PORT}/api/health`);
-
-  // Démarrer le service de nettoyage automatique des réservations
-  console.log(`🧹 Démarrage du service de nettoyage des réservations...`);
-  ReservationCleanupService.startCleanupScheduler();
 });
 
 module.exports = app; 

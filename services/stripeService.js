@@ -160,11 +160,25 @@ static async confirmPayment(paymentIntentId) {
         ]
       );
 
-      // Mettre à jour la réservation
+      // Mettre à jour la réservation ET marquer la place comme occupée
       await executeQuery(
         'UPDATE reservations SET status = "paid", paid_at = NOW() WHERE id = ?',
         [reservationId]
       );
+
+      // IMPORTANT: Marquer la place comme occupée SEULEMENT après paiement confirmé
+      const reservationData = await executeQuery(
+        'SELECT space_id FROM reservations WHERE id = ?',
+        [reservationId]
+      );
+      
+      if (reservationData.length > 0) {
+        await executeQuery(
+          'UPDATE parking_spaces SET status = "occupied" WHERE id = ?',
+          [reservationData[0].space_id]
+        );
+        console.log(`✅ Place ${reservationData[0].space_id} marquée comme occupée après paiement`);
+      }
 
       // Mettre à jour la balance
       try {

@@ -5,6 +5,7 @@ const { createError } = require('../middleware/errorHandler');
 const moment = require('moment');
 const emailService = require('../services/emailService');
 const notificationService = require('../services/notificationService');
+const ReservationCleanupService = require('../services/reservationCleanupService');
 
 const router = express.Router();
 
@@ -79,9 +80,10 @@ router.post('/', reservationValidation, async (req, res, next) => {
     }
 
     // Vérifier qu'il n'y a pas de conflit de réservation pour cette place
+    // IMPORTANT: Ne considérer que les réservations PAYÉES ('paid') ou ACTIVES ('active')
     const conflictingReservations = await executeQuery(
       `SELECT id FROM reservations 
-       WHERE space_id = ? AND status IN ('active', 'pending')
+       WHERE space_id = ? AND status IN ('paid', 'active')
        AND (
          (start_time <= ? AND end_time >= ?) OR
          (start_time <= ? AND end_time >= ?) OR
@@ -529,6 +531,80 @@ router.patch('/:id/complete', async (req, res, next) => {
 
     res.json({
       message: 'Réservation terminée avec succès'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Route pour vérifier le temps restant d'une réservation pending
+router.get('/:id/time-remaining', async (req, res, next) => {
+  try {
+    const reservationId = req.params.id;
+
+    // Vérifier que la réservation appartient à l'utilisateur
+    const reservation = await executeQuery(
+      'SELECT user_id FROM reservations WHERE id = ?',
+      [reservationId]
+    );
+
+    if (reservation.length === 0) {
+      return res.status(404).json({
+        error: 'Réservation non trouvée',
+        message: 'La réservation demandée n\'existe pas'
+      });
+    }
+
+    if (reservation[0].user_id !== req.user.id) {
+      return res.status(403).json({
+        error: 'Accès refusé',
+        message: 'Cette réservation ne vous appartient pas'
+      });
+    }
+
+    const timeInfo = await ReservationCleanupService.getReservationTimeRemaining(reservationId);
+
+    if (!timeInfo.found) {
+      return res.status(404).json({
+        error: 'Réservation non trouvée',
+        message: 'La réservation demandée n\'existe pas'
+      });
+    }
+
+    res.json({
+      reservationId: parseInt(reservationId),
+      status: timeInfo.status,
+      expired: timeInfo.expired,
+      minutesRemaining: timeInfo.minutesRemaining,
+      minutesElapsed: timeInfo.minutesElapsed,
+      expirationTime: timeInfo.status === 'pending' ? 15 : null, // 15 minutes pour payer
+      message: timeInfo.expired ? 'Réservation expirée' : 
+               timeInfo.status !== 'pending' ? 'Réservation confirmée' :
+               `${timeInfo.minutesRemaining} minutes restantes pour payer`
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Route pour nettoyer manuellement les réservations expirées (admin)
+router.post('/cleanup-expired', async (req, res, next) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Accès refusé',
+        message: 'Seuls les administrateurs peuvent effectuer cette action'
+      });
+    }
+
+    const result = await ReservationCleanupService.cleanupExpiredReservations();
+
+    res.json({
+      message: 'Nettoyage des réservations expirées terminé',
+      reservationsCleaned: result.cleaned
     });
 
   } catch (error) {

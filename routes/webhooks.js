@@ -47,6 +47,10 @@ router.post('/stripe', express.raw({type: 'application/json'}), async (req, res)
   try {
     // Traiter les différents types d'événements
     switch (event.type) {
+      case 'payment_intent.created':
+        await handlePaymentIntentCreated(event.data.object);
+        break;
+
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event.data.object);
         break;
@@ -63,8 +67,12 @@ router.post('/stripe', express.raw({type: 'application/json'}), async (req, res)
         await handleChargeDispute(event.data.object);
         break;
 
+      case 'customer.created':
+        await handleCustomerCreated(event.data.object);
+        break;
+
       default:
-        console.log(`Événement Stripe non géré: ${event.type}`);
+        console.log(`🔸 Événement Stripe non critique: ${event.type}`);
     }
 
     res.json({received: true});
@@ -239,6 +247,66 @@ async function handleChargeDispute(dispute) {
     console.log('Raison:', dispute.reason);
   } catch (error) {
     console.error('Erreur dans handleChargeDispute:', error);
+    throw error;
+  }
+}
+
+// Gestionnaire pour création d'un Payment Intent
+async function handlePaymentIntentCreated(paymentIntent) {
+  try {
+    console.log('Webhook: Payment Intent créé -', paymentIntent.id);
+    console.log('Montant:', paymentIntent.amount / 100, paymentIntent.currency);
+    console.log('Status:', paymentIntent.status);
+
+    // Vérifier si le paiement existe déjà dans notre base
+    const existingPayment = await executeQuery(
+      'SELECT id, status FROM payments WHERE stripe_payment_intent_id = ?',
+      [paymentIntent.id]
+    );
+
+    if (existingPayment.length > 0) {
+      console.log('✅ Payment Intent déjà enregistré, ID:', existingPayment[0].id);
+      
+      // Mettre à jour le statut si nécessaire
+      if (existingPayment[0].status !== paymentIntent.status) {
+        await executeQuery(
+          'UPDATE payments SET status = ?, updated_at = NOW() WHERE stripe_payment_intent_id = ?',
+          [paymentIntent.status, paymentIntent.id]
+        );
+        console.log(`📝 Status mis à jour: ${existingPayment[0].status} → ${paymentIntent.status}`);
+      }
+    } else {
+      console.log('ℹ️ Payment Intent créé côté Stripe, en attente d\'enregistrement côté application');
+    }
+
+  } catch (error) {
+    console.error('Erreur dans handlePaymentIntentCreated:', error);
+    throw error;
+  }
+}
+
+// Gestionnaire pour création d'un customer
+async function handleCustomerCreated(customer) {
+  try {
+    console.log('Webhook: Customer Stripe créé -', customer.id);
+    console.log('Email:', customer.email);
+    
+    // Mettre à jour l'utilisateur avec le customer ID si on peut l'identifier
+    if (customer.email) {
+      const result = await executeQuery(
+        'UPDATE users SET stripe_customer_id = ? WHERE email = ? AND stripe_customer_id IS NULL',
+        [customer.id, customer.email]
+      );
+      
+      if (result.affectedRows > 0) {
+        console.log(`✅ Customer ID ${customer.id} associé à l'utilisateur ${customer.email}`);
+      } else {
+        console.log(`ℹ️ Aucun utilisateur trouvé pour l'email ${customer.email} ou customer ID déjà défini`);
+      }
+    }
+
+  } catch (error) {
+    console.error('Erreur dans handleCustomerCreated:', error);
     throw error;
   }
 }

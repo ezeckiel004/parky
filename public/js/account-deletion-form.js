@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Clear token and redirect after delay
                     setTimeout(() => {
                         localStorage.removeItem('deletion_token');
-                        window.location.href = '/';
+                        window.location.href = '/api/auth/account-deletion/login';
                     }, 3000);
                     
                 } else {

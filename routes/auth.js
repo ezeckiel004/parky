@@ -561,10 +561,14 @@ router.post('/logout', (req, res) => {
 
 // Route pour afficher la page de connexion de suppression de compte
 router.get('/account-deletion/login', (req, res) => {
+  // Désactiver CSP pour cette page spécifiquement
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https: data:;"
+  );
   res.sendFile(path.join(__dirname, '../public/account-deletion-login.html'));
 });
 
-// Route pour la connexion spécifique à la suppression de compte
+// Route de connexion spécifique à la suppression de compte
 router.post('/account-deletion/login', loginValidation, async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -618,6 +622,10 @@ router.post('/account-deletion/login', loginValidation, async (req, res, next) =
 
 // Route pour afficher le formulaire de suppression de compte
 router.get('/account-deletion/form', (req, res) => {
+  // Désactiver CSP pour cette page spécifiquement
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'; font-src 'self' https: data:;"
+  );
   res.sendFile(path.join(__dirname, '../public/account-deletion-form.html'));
 });
 

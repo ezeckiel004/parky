@@ -24,8 +24,31 @@ const adminRoutes = require('./routes/admin');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticateToken } = require('./middleware/auth');
 
-// Configuration de sécurité
-app.use(helmet());
+// Configuration de sécurité avec CSP personnalisée
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'", 
+        "https://cdn.jsdelivr.net",  // Pour Tailwind CSS
+        // Hash pour les scripts inline si nécessaire (optionnel)
+        "'sha256-/l/mWpAeW1KTp9+YrkAEq3biKtXYhm/iauUI13DvfUc='"
+      ],
+      styleSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "https://cdn.jsdelivr.net"
+      ],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  }
+}));
 
 // Configuration CORS
 app.use(cors({

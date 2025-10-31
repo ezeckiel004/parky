@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const path = require('path');
 const { body, validationResult } = require('express-validator');
 const { executeQuery } = require('../config/database');
 const { generateToken } = require('../middleware/auth');
@@ -556,6 +557,155 @@ router.post('/logout', (req, res) => {
   res.json({
     message: 'Déconnexion réussie'
   });
+});
+
+// Route pour afficher la page de connexion de suppression de compte
+router.get('/account-deletion/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/account-deletion-login.html'));
+});
+
+// Route pour la connexion spécifique à la suppression de compte
+router.post('/account-deletion/login', loginValidation, async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        message: 'Veuillez corriger les erreurs suivantes',
+        details: errors.array()
+      });
+    }
+
+    const { email, password } = req.body;
+
+    // Récupérer l'utilisateur
+    const users = await executeQuery(
+      'SELECT * FROM users WHERE email = ? AND status = "active"',
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({
+        error: 'Identifiants invalides',
+        message: 'Email ou mot de passe incorrect'
+      });
+    }
+
+    const user = users[0];
+
+    // Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        error: 'Identifiants invalides',
+        message: 'Email ou mot de passe incorrect'
+      });
+    }
+
+    // Générer le token JWT pour la suppression
+    const token = generateToken(user.id, user.email, user.role);
+
+    res.json({
+      message: 'Connexion réussie pour suppression de compte',
+      token,
+      redirect: '/api/auth/account-deletion/form'
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Route pour afficher le formulaire de suppression de compte
+router.get('/account-deletion/form', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/account-deletion-form.html'));
+});
+
+// Route pour traiter la suppression de compte
+router.post('/account-deletion/submit', [
+  body('reason').notEmpty().withMessage('La raison de suppression est requise')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        message: 'Veuillez fournir une raison pour la suppression',
+        details: errors.array()
+      });
+    }
+
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({
+        error: 'Non autorisé',
+        message: 'Token d\'authentification requis'
+      });
+    }
+
+    // Vérifier et décoder le token (le middleware auth sera appliqué automatiquement)
+    const jwt = require('jsonwebtoken');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({
+        error: 'Token invalide',
+        message: 'Token d\'authentification invalide'
+      });
+    }
+
+    const { reason } = req.body;
+    const userId = decoded.userId;
+
+    // Vérifier que l'utilisateur existe encore
+    const user = await executeQuery(
+      'SELECT id, email, first_name FROM users WHERE id = ? AND status = "active"',
+      [userId]
+    );
+
+    if (user.length === 0) {
+      return res.status(404).json({
+        error: 'Utilisateur non trouvé',
+        message: 'Le compte utilisateur n\'existe pas ou est déjà désactivé'
+      });
+    }
+
+    // Enregistrer la demande de suppression
+    await executeQuery(
+      `INSERT INTO account_deletions (user_id, reason, requested_at, status) 
+       VALUES (?, ?, NOW(), 'pending')`,
+      [userId, reason]
+    );
+
+    // Marquer le compte comme "en cours de suppression"
+    await executeQuery(
+      'UPDATE users SET status = "deletion_requested", updated_at = NOW() WHERE id = ?',
+      [userId]
+    );
+
+    console.log(`✅ Demande de suppression de compte enregistrée pour l'utilisateur ${user[0].email}`);
+
+    // Envoyer un email de confirmation (optionnel)
+    try {
+      await emailService.sendAccountDeletionConfirmation(user[0].email, {
+        userName: user[0].first_name,
+        reason: reason
+      });
+      console.log('✅ Email de confirmation de suppression envoyé');
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email de confirmation:', emailError.message);
+      // Continuer même si l'email échoue
+    }
+
+    res.json({
+      message: 'Votre demande de suppression de compte a été enregistrée. Votre compte sera désactivé sous 30 jours.',
+      success: true
+    });
+
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router; 

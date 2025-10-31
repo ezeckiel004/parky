@@ -18,6 +18,7 @@ const webhookRoutes = require('./routes/webhooks');
 const balanceRoutes = require('./routes/balance');
 const favoriteRoutes = require('./routes/favorites');
 const notificationRoutes = require('./routes/notifications');
+const adminRoutes = require('./routes/admin');
 
 // Import des middlewares
 const { errorHandler } = require('./middleware/errorHandler');
@@ -82,8 +83,17 @@ app.use('/api/webhooks', webhookRoutes);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir les fichiers statiques (pages légales)
+// Servir les fichiers statiques (pages légales et suppression de compte)
 app.use(express.static(path.join(__dirname, '../'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+  }
+}));
+
+// Servir les pages de suppression de compte
+app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -115,6 +125,7 @@ app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/balance', authenticateToken, balanceRoutes);
 app.use('/api/favorites', authenticateToken, favoriteRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Route de santé de l'API
 app.get('/api/health', (req, res) => {

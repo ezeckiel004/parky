@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supprimer mon compte - Parky</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white; padding: 24px; border-radius: 8px;
+            max-width: 400px; width: 90%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .success-message, .error-message {
+            display: none;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .success-message {
+            background-color: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #7dd3fc;
+        }
+        .error-message {
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+<div class="max-w-md w-full mx-auto p-6 bg-white rounded-xl shadow-lg fade-in">
+    
+    <!-- Header -->
+    <div class="text-center mb-6">
+        <div class="mx-auto mb-2 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
+            <span class="text-white font-bold text-xl">⚠</span>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">Supprimer mon compte</h2>
+    </div>
+    
+    <p class="text-gray-600 mb-6 text-center">Veuillez indiquer pourquoi vous souhaitez supprimer votre compte. Cette action est irréversible.</p>
+    
+    <!-- Messages -->
+    <div id="success-message" class="success-message"></div>
+    <div id="error-message" class="error-message"></div>
+    
+    <form id="delete-account-form" class="space-y-4">
+        <div>
+            <label for="reason" class="block text-sm font-medium text-gray-700">Raison de la suppression</label>
+            <select id="reason" name="reason" onchange="toggleCustomReason()"
+                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-700 p-3 border">
+                <option value="Je n'utilise plus l'application">Je n'utilise plus l'application</option>
+                <option value="Je trouve l'application trop compliquée">Je trouve l'application trop compliquée</option>
+                <option value="Je n'ai pas trouvé ce que je cherchais">Je n'ai pas trouvé ce que je cherchais</option>
+                <option value="Problèmes techniques récurrents">Problèmes techniques récurrents</option>
+                <option value="Préoccupations concernant la confidentialité">Préoccupations concernant la confidentialité</option>
+                <option value="Service client insatisfaisant">Service client insatisfaisant</option>
+                <option value="Je préfère une autre application">Je préfère une autre application</option>
+                <option value="Autre (précisez)">Autre (précisez)</option>
+            </select>
+        </div>
+
+        <div>
+            <textarea id="custom-reason"
+                      name="custom_reason" 
+                      style="display:none;"
+                      rows="3"
+                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3 border"
+                      placeholder="Précisez votre raison"></textarea>
+        </div>
+
+        <div class="flex space-x-4 pt-4">
+            <button type="submit"
+                    id="submit-btn"
+                    class="flex-1 bg-red-600 text-white py-3 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition font-semibold">
+                Supprimer
+            </button>
+
+            <button type="button"
+                    onclick="goBack()"
+                    class="flex-1 text-center bg-gray-200 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-300 transition font-semibold">
+                Annuler
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirm-modal" class="modal">
+    <div class="modal-content">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Confirmer la suppression</h3>
+        <p class="text-gray-600 mb-6">Êtes-vous sûr de vouloir supprimer votre compte ? Cette action ne peut pas être annulée.</p>
+        <div class="flex space-x-4">
+            <button id="confirm-delete"
+                    class="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 font-semibold">
+                Oui, supprimer
+            </button>
+            <button id="cancel-delete"
+                    class="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 font-semibold">
+                Annuler
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Check if user is authenticated
+    const token = localStorage.getItem('deletion_token');
+    if (!token) {
+        window.location.href = '/api/auth/account-deletion/login';
+    }
+
+    function toggleCustomReason() {
+        const select = document.getElementById('reason');
+        const customReason = document.getElementById('custom-reason');
+        const isCustom = select.value === 'Autre (précisez)';
+
+        customReason.style.display = isCustom ? 'block' : 'none';
+        
+        if (isCustom) {
+            customReason.required = true;
+        } else {
+            customReason.required = false;
+            customReason.value = '';
+        }
+    }
+
+    function goBack() {
+        localStorage.removeItem('deletion_token');
+        window.location.href = '/api/auth/account-deletion/login';
+    }
+
+    const form = document.getElementById('delete-account-form');
+    const modal = document.getElementById('confirm-modal');
+    const confirmDelete = document.getElementById('confirm-delete');
+    const cancelDelete = document.getElementById('cancel-delete');
+    const submitBtn = document.getElementById('submit-btn');
+    const successMessage = document.getElementById('success-message');
+    const errorMessage = document.getElementById('error-message');
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        // Reset messages
+        successMessage.style.display = 'none';
+        errorMessage.style.display = 'none';
+        
+        // Validate form
+        const reasonSelect = document.getElementById('reason');
+        const customReasonTextarea = document.getElementById('custom-reason');
+        
+        if (reasonSelect.value === 'Autre (précisez)' && !customReasonTextarea.value.trim()) {
+            errorMessage.textContent = 'Veuillez préciser votre raison.';
+            errorMessage.style.display = 'block';
+            return;
+        }
+        
+        modal.style.display = 'flex';
+    });
+
+    confirmDelete.addEventListener('click', async () => {
+        modal.style.display = 'none';
+        
+        // Disable button
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Suppression en cours...';
+        
+        try {
+            const reasonSelect = document.getElementById('reason');
+            const customReasonTextarea = document.getElementById('custom-reason');
+            
+            let reason = reasonSelect.value;
+            if (reason === 'Autre (précisez)') {
+                reason = customReasonTextarea.value.trim();
+            }
+            
+            const response = await fetch('/api/auth/account-deletion/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ reason })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                successMessage.textContent = data.message;
+                successMessage.style.display = 'block';
+                
+                // Hide form and show success
+                form.style.display = 'none';
+                
+                // Clear token and redirect after delay
+                setTimeout(() => {
+                    localStorage.removeItem('deletion_token');
+                    window.location.href = '/';
+                }, 3000);
+                
+            } else {
+                errorMessage.textContent = data.message || 'Erreur lors de la suppression du compte';
+                errorMessage.style.display = 'block';
+            }
+            
+        } catch (error) {
+            errorMessage.textContent = 'Erreur de connexion. Veuillez réessayer.';
+            errorMessage.style.display = 'block';
+        }
+        
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Supprimer';
+    });
+
+    cancelDelete.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    // Close modal on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Parky</title>
+
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn .4s ease-in-out; }
+        .error-message {
+            display: none;
+            background-color: #fef2f2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 fade-in">
+
+        <!-- Logo + App Name -->
+        <div class="text-center mb-6">
+            <div class="mx-auto mb-2 w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center">
+                <span class="text-white font-bold text-2xl">P</span>
+            </div>
+            <h1 class="text-xl font-bold text-gray-800">Parky</h1>
+        </div>
+
+        <!-- Bienvenue Message -->
+        <p class="text-center text-gray-600 mb-6">
+            Bienvenue ! Connectez-vous pour confirmer la suppression de votre compte.
+        </p>
+        
+        <!-- Suppression de compte - Infos obligatoires Google Play -->
+        <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+
+            <h2 class="font-semibold text-blue-800 mb-2">À propos de l'application</h2>
+            <p><strong>Nom de l'application :</strong> Parky</p>
+            <p><strong>Développeur :</strong> Parky Team</p>
+
+            <hr class="my-3">
+
+            <h2 class="font-semibold text-blue-800 mb-2">Procédure de suppression du compte</h2>
+            <p>
+                Vous pouvez demander la suppression de votre compte directement
+                depuis cette page après vous être connecté. La suppression est définitive.
+            </p>
+
+            <ol class="list-decimal ml-5 mt-2 space-y-1">
+                <li>Connectez-vous avec votre adresse email et mot de passe.</li>
+                <li>Confirmez votre identité.</li>
+                <li>Validez la suppression de votre compte.</li>
+            </ol>
+
+            <hr class="my-3">
+
+            <h2 class="font-semibold text-blue-800 mb-2">Quelles données sont supprimées ?</h2>
+            <p>
+                Lors de la suppression, les données suivantes seront supprimées ou anonymisées :
+            </p>
+
+            <ul class="list-disc ml-5 mt-2 space-y-1">
+                <li>Informations personnelles (nom, prénom, adresse, email)</li>
+                <li>Historique d'utilisation et de réservations</li>
+                <li>Identifiants de connexion</li>
+                <li>Données de paiement</li>
+            </ul>
+
+            <p class="mt-2">
+                <strong>Données conservées :</strong> Certaines données strictement nécessaires
+                peuvent être conservées temporairement pour des raisons légales ou de sécurité
+                (jusqu'à 30 jours maximum).
+            </p>
+
+            <p class="mt-2">
+                En cas de réactivation dans ce délai, votre compte pourra être restauré.
+            </p>
+        </div>
+
+        <!-- Display Errors -->
+        <div id="error-message" class="error-message"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4 mt-6">
+            <div>
+                <label class="text-sm font-medium text-gray-700">Adresse Email</label>
+                <input type="email"
+                       id="email"
+                       name="email"
+                       required
+                       class="w-full mt-1 p-3 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+
+            <div>
+                <label class="text-sm font-medium text-gray-700">Mot de passe</label>
+                <input type="password"
+                       id="password"
+                       name="password"
+                       required
+                       class="w-full mt-1 p-3 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+
+            <button type="submit"
+                    id="submit-btn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-semibold transition">
+                Se connecter
+            </button>
+        </form>
+
+        <!-- Optional: retour -->
+        <div class="text-center mt-4">
+            <a href="/" class="text-sm text-gray-500 hover:underline">Retour à l'accueil</a>
+        </div>
+
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('submit-btn');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Reset error message
+            errorMessage.style.display = 'none';
+            
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Connexion...';
+            
+            try {
+                const response = await fetch('/api/auth/account-deletion/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store token and redirect
+                    localStorage.setItem('deletion_token', data.token);
+                    window.location.href = '/api/auth/account-deletion/form';
+                } else {
+                    // Show error
+                    errorMessage.textContent = data.message || 'Erreur de connexion';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Erreur de connexion. Veuillez réessayer.';
+                errorMessage.style.display = 'block';
+            }
+            
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Se connecter';
+        });
+    </script>
+
+</body>
+</html>

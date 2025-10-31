@@ -298,6 +298,52 @@ class EmailService {
     );
   }
 
+  // Email de confirmation de suppression de compte
+  async sendAccountDeletionConfirmation(to, data) {
+    if (this.disabled) {
+      console.log(`📧 Service email désactivé - Email de suppression non envoyé à ${to}`);
+      return { success: false, error: 'Service email désactivé' };
+    }
+
+    const { userName, reason } = data;
+    const subject = 'Demande de suppression de compte - Parky';
+    
+    const content = `
+      <h2 style="color: #e11d48;">Demande de suppression de compte</h2>
+      
+      <p>Bonjour ${userName || 'Utilisateur'},</p>
+      
+      <p>Nous avons bien reçu votre demande de suppression de compte sur l'application Parky.</p>
+      
+      <div style="background-color: #fef2f2; border-left: 4px solid #e11d48; padding: 16px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #e11d48;">Détails de votre demande</h3>
+        <p><strong>Raison :</strong> ${reason}</p>
+        <p><strong>Date de demande :</strong> ${new Date().toLocaleString('fr-FR')}</p>
+      </div>
+      
+      <h3>Que va-t-il se passer ?</h3>
+      <ul>
+        <li>Votre compte sera désactivé immédiatement</li>
+        <li>Vos données personnelles seront supprimées sous 30 jours</li>
+        <li>Vous ne pourrez plus accéder à l'application</li>
+        <li>Cette action est irréversible après 30 jours</li>
+      </ul>
+      
+      <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #3b82f6;">Vous avez changé d'avis ?</h3>
+        <p>Si vous souhaitez annuler cette demande, contactez-nous rapidement à cette adresse email.</p>
+      </div>
+      
+      <p>Nous sommes désolés de vous voir partir. Si vous avez des suggestions pour améliorer notre service, n'hésitez pas à nous en faire part.</p>
+      
+      <p>Cordialement,<br>L'équipe Parky</p>
+    `;
+
+    const html = this.generateEmailTemplate('Suppression de compte - Parky', content);
+    
+    return await this.sendEmail(to, subject, html);
+  }
+
   // Méthode générique d'envoi d'email
   async sendEmail(to, subject, html, text = null) {
     if (this.disabled) {
